@@ -62,25 +62,30 @@ function installLocalCommands(
                 ? message.content.trim()
                 : ''
 
-            if (!text.startsWith('/tr-')) {
+            if (!text.startsWith('!tr')) {
               return original.apply(this, args)
             }
 
-            if (text === '/tr-on') {
+            const parts = text.split(/\s+/)
+            if (parts[0] !== '!tr') {
+              return original.apply(this, args)
+            }
+
+            const action = (parts[1] ?? 'help').toLowerCase()
+
+            if (action === 'on') {
               await api.jsonStorage.set({ enabled: true })
-              repaintAll()
               showLocalMessage('Traducao automatica ativada.')
               return undefined
             }
 
-            if (text === '/tr-off') {
+            if (action === 'off') {
               await api.jsonStorage.set({ enabled: false })
-              repaintAll()
               showLocalMessage('Traducao automatica desativada.')
               return undefined
             }
 
-            if (text === '/tr-status') {
+            if (action === 'status') {
               const current = {
                 ...DEFAULTS,
                 ...(api.jsonStorage.cache ?? {}),
@@ -94,19 +99,20 @@ function installLocalCommands(
               return undefined
             }
 
-            if (text === '/tr-help') {
+            if (action === 'help') {
               showLocalMessage(
-                '/tr-lang pt  - muda o idioma\n' +
-                  '/tr-on       - ativa\n' +
-                  '/tr-off      - desativa\n' +
-                  '/tr-status   - mostra o estado',
+                '!tr pt      - traduz para portugues\n' +
+                  '!tr en      - traduz para ingles\n' +
+                  '!tr es      - traduz para espanhol\n' +
+                  '!tr on      - ativa\n' +
+                  '!tr off     - desativa\n' +
+                  '!tr status  - mostra o estado',
               )
               return undefined
             }
 
-            const match = text.match(/^\/tr-lang\s+([A-Za-z-]{2,12})$/)
-            if (match) {
-              const targetLanguage = normalizeLanguage(match[1])
+            if (parts.length === 2 && /^[A-Za-z-]{2,20}$/.test(parts[1])) {
+              const targetLanguage = normalizeLanguage(parts[1])
               await api.jsonStorage.set({ targetLanguage })
               resetTranslations()
               repaintAll()
@@ -115,7 +121,7 @@ function installLocalCommands(
             }
 
             showLocalMessage(
-              'Comando invalido. Use /tr-help para ver os comandos.',
+              'Comando invalido. Use !tr help para ver os comandos.',
             )
             return undefined
           },
