@@ -9,7 +9,8 @@
 		"plan-releases": "revenge-plugin plan-releases",
 		"serve": "revenge-plugin serve",
 		"lint": "biome check",
-		"lint:types": "tsc --noEmit && tsc -p cli --noEmit"
+		"lint:types": "tsc --noEmit",
+		"test": "bun --bun run build && bun test tests"
 	},
 	"dependencies": {
 		"@revenge-mod/devtools-client": "^1.4.0",

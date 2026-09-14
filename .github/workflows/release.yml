@@ -39,6 +39,9 @@ jobs:
 
       - run: bun install
 
+      - name: Test plugin runtime behavior
+        run: bun run test
+
       - name: Check out the published pool
         run: .github/scripts/checkout-pool.sh
 

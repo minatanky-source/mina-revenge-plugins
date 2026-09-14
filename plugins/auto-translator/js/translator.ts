@@ -1,127 +1,166 @@
-const MAX_CACHE = 1000
-const MAX_QUEUE = 120
+const MAX_CACHE = 500
+const MAX_QUEUE = 100
 const CONCURRENCY = 3
+const TIMEOUT = 12000
+const RETRY_DELAY = 30000
 
-interface TranslationTask {
-  key: string
-  text: string
-  target: string
+interface Task {
+	key: string
+	text: string
+	target: string
+	generation: number
+	callbacks: Set<() => void>
+	controller?: AbortController
 }
 
 const cache = new Map<string, string>()
-const queued = new Set<string>()
-const listeners = new Map<string, Set<() => void>>()
-const queue: TranslationTask[] = []
+const tasks = new Map<string, Task>()
+const failures = new Map<string, number>()
+const queue: Task[] = []
 let running = 0
+let generation = 0
+let completed = 0
+let lastError = ''
 
 function keyFor(text: string, target: string) {
-  return target + '\u0000' + text
+	return target + '\u0000' + text
 }
 
-function cacheSet(key: string, value: string) {
-  if (cache.has(key)) cache.delete(key)
-  cache.set(key, value)
-
-  while (cache.size > MAX_CACHE) {
-    const oldest = cache.keys().next()
-    if (oldest.done) break
-    cache.delete(oldest.value)
-  }
+function trimMap<T>(map: Map<string, T>) {
+	while (map.size > MAX_CACHE) map.delete(map.keys().next().value!)
 }
 
-function shouldTranslate(text: string) {
-  const value = text.trim()
-  if (value.length < 2 || value.length > 3500) return false
-  if (/^https?:\/\/\S+$/i.test(value)) return false
-  return /[A-Za-zÀ-ÿ\u0100-\uFFFF]/.test(value)
+export function shouldTranslate(text: string) {
+	const value = text.trim()
+	if (value.length < 2 || value.length > 3500) return false
+	if (/^https?:\/\/\S+$/i.test(value)) return false
+	return /[\p{L}]/u.test(value)
 }
 
-async function googleTranslate(text: string, target: string) {
-  const url =
-    'https://translate.googleapis.com/translate_a/single' +
-    '?client=gtx&sl=auto&dt=t&tl=' +
-    encodeURIComponent(target) +
-    '&q=' +
-    encodeURIComponent(text)
-
-  const response = await fetch(url)
-  if (!response.ok) throw new Error('Google Translate HTTP ' + response.status)
-
-  const body = await response.json()
-  const translated = Array.isArray(body?.[0])
-    ? body[0].map((part: any) => part?.[0] ?? '').join('')
-    : ''
-
-  if (!translated) throw new Error('Google Translate returned an empty result')
-  return translated
+export async function testTranslation(target: string) {
+	return googleTranslate('Hello! How are you?', target)
 }
 
-function notify(key: string) {
-  const callbacks = listeners.get(key)
-  listeners.delete(key)
-
-  if (!callbacks) return
-  for (const callback of callbacks) {
-    try {
-      callback()
-    } catch {}
-  }
+async function googleTranslate(text: string, target: string, task?: Task) {
+	const controller = new AbortController()
+	if (task) task.controller = controller
+	let timer: ReturnType<typeof setTimeout> | undefined
+	try {
+		// Include the response body in the timeout so a stalled request releases its worker.
+		return await Promise.race([
+			(async () => {
+				const response = await fetch(
+					'https://translate.googleapis.com/translate_a/single' +
+						'?client=gtx&sl=auto&dt=t&tl=' +
+						encodeURIComponent(target) +
+						'&q=' +
+						encodeURIComponent(text),
+					{ signal: controller.signal },
+				)
+				if (!response.ok)
+					throw new Error('Google Translate HTTP ' + response.status)
+				const body = await response.json()
+				const result = Array.isArray(body?.[0])
+					? body[0]
+							.map((part: unknown) =>
+								Array.isArray(part) && typeof part[0] === 'string'
+									? part[0]
+									: '',
+							)
+							.join('')
+					: ''
+				if (!result) throw new Error('Resposta vazia do Google Translate')
+				return result
+			})(),
+			new Promise<never>((_, reject) => {
+				timer = setTimeout(() => {
+					controller.abort()
+					reject(new Error('Google Translate demorou mais de 12 segundos'))
+				}, TIMEOUT)
+			}),
+		])
+	} finally {
+		clearTimeout(timer)
+	}
 }
 
 function pump() {
-  while (running < CONCURRENCY && queue.length > 0) {
-    const task = queue.shift()
-    if (!task) break
-
-    running++
-
-    googleTranslate(task.text, task.target)
-      .then(result => {
-        cacheSet(task.key, result)
-        notify(task.key)
-      })
-      .catch(error => {
-        console.warn('[AutoTranslator] translation failed:', String(error))
-        listeners.delete(task.key)
-      })
-      .finally(() => {
-        running--
-        queued.delete(task.key)
-        pump()
-      })
-  }
+	while (running < CONCURRENCY && queue.length) {
+		const task = queue.shift()!
+		running++
+		void googleTranslate(task.text, task.target, task)
+			.then(result => {
+				if (task.generation !== generation) return
+				cache.set(task.key, result)
+				trimMap(cache)
+				failures.delete(task.key)
+				completed++
+				lastError = ''
+				for (const callback of task.callbacks) {
+					try {
+						callback()
+					} catch (error) {
+						console.warn('[AutoTranslator] atualização do chat:', String(error))
+					}
+				}
+			})
+			.catch(error => {
+				if (task.generation !== generation) return
+				lastError = String(error)
+				failures.set(task.key, Date.now() + RETRY_DELAY)
+				trimMap(failures)
+				console.warn('[AutoTranslator]', lastError)
+			})
+			.finally(() => {
+				running--
+				if (tasks.get(task.key) === task) tasks.delete(task.key)
+				pump()
+			})
+	}
 }
 
 export function getTranslation(
-  text: string,
-  target: string,
-  onReady: () => void,
-): string | undefined {
-  if (!shouldTranslate(text)) return undefined
+	text: string,
+	target: string,
+	onReady: () => void,
+) {
+	if (!shouldTranslate(text)) return undefined
+	const key = keyFor(text, target)
+	const result = cache.get(key)
+	if (result !== undefined) return result
+	if ((failures.get(key) ?? 0) > Date.now()) return undefined
+	const existing = tasks.get(key)
+	if (existing) {
+		existing.callbacks.add(onReady)
+		return undefined
+	}
+	if (queue.length >= MAX_QUEUE) return undefined
+	const task: Task = {
+		key,
+		text,
+		target,
+		generation,
+		callbacks: new Set([onReady]),
+	}
+	tasks.set(key, task)
+	queue.push(task)
+	pump()
+	return undefined
+}
 
-  const key = keyFor(text, target)
-  const cached = cache.get(key)
-  if (cached !== undefined) return cached
-
-  let callbacks = listeners.get(key)
-  if (!callbacks) {
-    callbacks = new Set()
-    listeners.set(key, callbacks)
-  }
-  callbacks.add(onReady)
-
-  if (!queued.has(key) && queue.length < MAX_QUEUE) {
-    queued.add(key)
-    queue.push({ key, text, target })
-    pump()
-  }
-
-  return undefined
+export function translationStatus() {
+	return { pending: tasks.size, completed, lastError }
 }
 
 export function resetTranslations() {
-  cache.clear()
-  queued.clear()
-  listeners.clear()
-  queue.length = 0
+	generation++
+	for (const task of tasks.values()) {
+		task.callbacks.clear()
+		task.controller?.abort()
+	}
+	cache.clear()
+	tasks.clear()
+	failures.clear()
+	queue.length = 0
+	lastError = ''
 }

@@ -1,24 +1,19 @@
-import { DEFAULTS, setStorage, type MotionSettings } from './state'
+import { installMotion } from './engine'
+import { DEFAULTS, setStorage } from './state'
 import { SettingsComponent } from './ui'
+import type { MotionSettings } from './state'
 
 export default plugin<{ jsonStorage: MotionSettings }>({
-  jsonStorage: {
-    default: DEFAULTS,
-    load: true,
-  },
-
-  async start(api) {
-    setStorage(api.jsonStorage)
-    await api.jsonStorage.get()
-
-    console.warn(
-      '[Motion] Runtime effects are temporarily disabled in 0.1.2 for stability.',
-    )
-  },
-
-  stop() {
-    setStorage(undefined)
-  },
-
-  SettingsComponent,
+	jsonStorage: { default: DEFAULTS, load: true },
+	start(api) {
+		setStorage(api.jsonStorage)
+		const reset = installMotion(api.cleanup)
+		api.cleanup(api.jsonStorage.subscribe(reset))
+		if (api.plugin.startedLate) api.plugin.requireReload()
+		return api.jsonStorage.get()
+	},
+	stop() {
+		setStorage(undefined)
+	},
+	SettingsComponent,
 })

@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - 'plugins/**'
+      - 'tests/**'
       - 'cli/**'
       - '.github/**'
       - 'repo.config.json'
@@ -28,6 +29,12 @@ jobs:
 
       - name: Lint the workflow scripts
         run: shellcheck .github/scripts/*.sh
+
+      - name: Install JavaScript dependencies
+        run: bun install
+
+      - name: Test plugin runtime behavior
+        run: bun run test
 
       - name: Build all plugins
         run: ./gradlew --no-daemon packageAllPlugins
