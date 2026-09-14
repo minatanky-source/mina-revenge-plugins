@@ -5,7 +5,12 @@ export const flush = (ms = 15) =>
 
 export function runtime(
 	name: string,
-	options: { lazy?: boolean; collection?: string; fetch?: typeof fetch } = {},
+	options: {
+		lazy?: boolean
+		collection?: string
+		fetch?: typeof fetch
+		nativeMethods?: Record<string, (args: any[]) => any | Promise<any>>
+	} = {},
 ) {
 	const cleanups: Array<() => any> = []
 	const storageListeners = new Set<(value: any) => void>()
@@ -16,6 +21,9 @@ export function runtime(
 	const messages = new Map<string, any>()
 	const requests: URL[] = []
 	const sent: any[] = []
+	const uploads: any[] = []
+	const toasts: string[] = []
+	const nativeCalls: Array<{ name: string; args: any[] }> = []
 	const alerts: string[] = []
 	const dispatched: any[] = []
 	const jsxHooks = new Map<any, Set<(args: any[]) => any[]>>()
@@ -108,7 +116,18 @@ export function runtime(
 		},
 		editMessage() {},
 	}
-	const modules = [action, AppContainer]
+	const uploadActions = {
+		addFiles(payload: any) {
+			uploads.push(payload)
+			return payload
+		},
+		addFile(payload: any) {
+			uploads.push({ ...payload, files: payload?.file ? [payload.file] : [] })
+			return payload
+		},
+		clearAll() {},
+	}
+	const modules = [action, uploadActions, AppContainer]
 	const matches = (filter: any, value: any) =>
 		filter.name
 			? value.name === filter.name
@@ -203,6 +222,15 @@ export function runtime(
 	const revenge: any = {
 		patcher,
 		modules: {
+			native: {
+				callNativeMethod(name: string, args: any[]) {
+					nativeCalls.push({ name, args })
+					const handler = options.nativeMethods?.[name]
+					if (!handler)
+						return Promise.reject(new Error('Native method unavailable: ' + name))
+					return Promise.resolve(handler(args))
+				},
+			},
 			finders: {
 				filters: {
 					withName: (name: string) => ({ name }),
@@ -242,6 +270,11 @@ export function runtime(
 				},
 			},
 			actions: {
+				ToastActionCreators: {
+					open(value: any) {
+						toasts.push(String(value?.content ?? ''))
+					},
+				},
 				ActionSheetActionCreators: {
 					openLazy: () => 'sheet',
 					hideActionSheet() {},
@@ -298,7 +331,7 @@ export function runtime(
 					timers.delete(timer)
 					callback()
 				},
-				ms === 12000 ? 80 : ms,
+				ms === 12000 ? 80 : ms === 500 ? 10 : ms,
 			)
 			timers.add(timer)
 			return timer
@@ -341,6 +374,9 @@ export function runtime(
 		requests,
 		alerts,
 		sent,
+		uploads,
+		toasts,
+		nativeCalls,
 		dispatched,
 		animations,
 		values,
@@ -376,6 +412,9 @@ export function runtime(
 		content: (id: string, channel = 'one') =>
 			messages.get(key(channel, id))?.content,
 		command: (text: string) => action.sendMessage('one', { content: text }),
+		attach(files: any[], channelId = 'one', draftType: any = 0) {
+			return uploadActions.addFiles({ files, channelId, draftType })
+		},
 		dispatch: dispatcher.dispatch,
 		publishStore(name: string) {
 			available.add(name)

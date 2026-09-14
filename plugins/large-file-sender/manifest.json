@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "id": "dev.minatanky.large-file-sender",
+  "name": "Large File Sender",
+  "description": "Splits oversized files into Discord-sized parts and queues additional batches automatically.",
+  "author": "Mina",
+  "version": "0.1.0",
+  "dependencies": {
+    "revenge.api": { "version": ">=1 <2" },
+    "discord": { "version": "*" }
+  },
+  "dist": {
+    "script": "index.js",
+    "android": {
+      "path": "plugin.jar",
+      "class": "dev.minatanky.largefiles.LargeFileSender"
+    }
+  }
+}
