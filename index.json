@@ -38,6 +38,29 @@
           }
         }
       }
+    },
+    "dev.minatanky.motion": {
+      "name": "Motion",
+      "description": "Adds smooth, configurable animations across Discord.",
+      "author": "Mina",
+      "channels": {
+        "latest": "0.1.0"
+      },
+      "versions": {
+        "0.1.0": {
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.motion@0.1.0.zip",
+          "sha256": "36b15718ad5673492081863a06dc4b4cd99e7ff8596a58cc1a5bb4f0d0419f8f",
+          "size": 2477,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
     }
   }
 }
