@@ -1,0 +1,1 @@
+Callback publico da Sha 7 para autenticacao OAuth da Roblox.
