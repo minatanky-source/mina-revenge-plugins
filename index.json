@@ -5,10 +5,10 @@
   "plugins": {
     "dev.minatanky.auto-translator": {
       "name": "Auto Translator",
-      "description": "Automatically translates messages from other users into the language you choose.",
+      "description": "Automatically translates incoming messages and your outgoing messages into the languages you choose.",
       "author": "Mina",
       "channels": {
-        "latest": "0.1.4"
+        "latest": "0.1.5"
       },
       "versions": {
         "0.1.0": {
@@ -67,6 +67,19 @@
           "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.auto-translator@0.1.4.zip",
           "sha256": "51ed86270b6bbf662e93ec6555615029fad645f203abc4296599d76e08c2c2b7",
           "size": 7942,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.1.5": {
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.auto-translator@0.1.5.zip",
+          "sha256": "d685483d21a057808a7f0a38b45770a41708a44359d296e941143e6f82470fa3",
+          "size": 8322,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
