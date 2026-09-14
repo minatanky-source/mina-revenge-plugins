@@ -91,6 +91,29 @@
         }
       }
     },
+    "dev.minatanky.large-file-sender": {
+      "name": "Large File Sender",
+      "description": "Splits oversized files into Discord-sized parts and queues additional batches automatically.",
+      "author": "Mina",
+      "channels": {
+        "latest": "0.1.0"
+      },
+      "versions": {
+        "0.1.0": {
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.large-file-sender@0.1.0.zip",
+          "sha256": "7e1bf21443bc4d0d47e751b853724eb3d5d969abcd80c0fe3778e32568e1285e",
+          "size": 16012,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.minatanky.motion": {
       "name": "Motion",
       "description": "Adds smooth, configurable animations across Discord.",
