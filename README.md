@@ -1,3 +1,51 @@
+# Mina Revenge Plugins
+
+Plugins para **Revenge Next**. Não são compatíveis com o formato de plugins do Classic.
+
+| Plugin | Versão | Correções |
+| --- | --- | --- |
+| Auto Translator | 0.1.4 | Espera o carregamento do chat, acompanha canais e edições e descarta traduções antigas. |
+| Motion | 0.1.3 | Reativa transições com opacidade e escala, preserva os botões e respeita a opção de reduzir movimento do Android. |
+
+## Atualizar no celular
+
+1. No Revenge, abra **Plugins** e toque na engrenagem no topo para abrir **Advanced**.
+2. Em **Updates**, toque em **Check for updates** e depois em **Update all**.
+3. Reinicie o Discord para carregar os novos arquivos e aplicar o Motion à tela principal.
+4. Confira as versões na tabela acima. Não é necessário reinstalar o Manager ou substituir o bundle.
+
+Se precisar adicionar o repositório, use:
+
+```text
+https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/index.json
+```
+
+## Auto Translator
+
+Os comandos abaixo são locais e não são enviados ao canal enquanto o plugin está ativo:
+
+| Comando | Ação |
+| --- | --- |
+| `!tr pt` | Escolher português. |
+| `!tr on` / `!tr off` | Ativar ou desativar a tradução. Ao desativar, restaurar os originais ainda acompanhados. |
+| `!tr status` | Ver conexão com o chat, contadores, fila e último erro. |
+| `!tr test` | Traduzir uma frase de teste e mostrar o resultado em um aviso local. |
+| `!tr retry` | Limpar erros e tentar novamente. |
+
+O texto a traduzir é enviado ao Google Translate. Menções, URLs e trechos de código são protegidos antes do envio. As mensagens originais no servidor do Discord não são editadas.
+
+## Motion
+
+Nas configurações do plugin, escolha o estilo e os efeitos para navegação, canais, menus e botões. As transições de tela usam um efeito breve de opacidade e escala. Os botões usam a animação de pressão do próprio Discord. Desativar o plugin ou ativar a redução de movimento interrompe os efeitos pendentes.
+
+## Verificação
+
+`bun install` e `bun run test` compilam os plugins e executam testes sobre os arquivos gerados. Os testes simulam os contratos de Flux, módulos, armazenamento e animações do Next. Também são executados antes de publicar versões. A aparência e o comportamento nativo precisam ser conferidos no dispositivo Android.
+
+Abaixo está a documentação original do template de desenvolvimento.
+
+---
+
 # Revenge Plugin Template
 
 This repository is a starter monorepo for external Revenge plugins. Each plugin becomes one ZIP

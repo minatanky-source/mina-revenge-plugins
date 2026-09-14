@@ -1,580 +1,304 @@
+import { Dispatcher } from '@revenge-mod/discord/common/flux'
 import { getSettings } from './state'
-import { getTranslation } from './translator'
+import { getTranslation, shouldTranslate } from './translator'
 
-const SYNTHETIC_FLAG = '__mina_auto_translator'
-const RETRY_CLEAR_MS = 15000
-const MAX_TRACKED_MESSAGES = 500
-
-interface MessageEntry {
-  id: string
-  channelId: string
-  original: string
-  translated?: string
-  target?: string
+type Cleanup = (...fns: Array<() => unknown>) => void
+type Message = Record<string, any>
+interface Entry {
+	id: string
+	channel: string
+	original: string
+	applied?: string
+	request?: () => void
 }
 
-const entries = new Map<string, MessageEntry>()
-const pending = new Map<string, number>()
-const deferred = new Set<number>()
+const FLAG = '__mina_auto_translator'
+const entries = new Map<string, Entry>()
+const deferred = new Map<string, ReturnType<typeof setTimeout>>()
+let messageStore: any
+let userStore: any
+let selectedStore: any
+let active = false
+let generation = 0
+let lifecycle = 0
+let observed = 0
+let applied = 0
+let lastError = ''
 
-function stores() {
-  return (revenge.discord.flux as any)?.Stores
+const TOKENS =
+	/(\x60\x60\x60[\s\S]*?\x60\x60\x60|\x60[^\x60\n]+\x60|https?:\/\/\S+|<a?:[^:>\s]+:\d+>|<@!?\d+>|<@&\d+>|<#\d+>|<t:\d+(?::[A-Za-z])?>|<\/[^:>]+:\d+>)/g
+
+export function protectText(text: string) {
+	const tokens: string[] = []
+	const plain = text.replace(TOKENS, '')
+	const prepared = text.replace(
+		TOKENS,
+		token => 'ZXQMINATOKEN' + (tokens.push(token) - 1) + 'ZXQ',
+	)
+	return { prepared, tokens, translatable: shouldTranslate(plain) }
 }
 
-function dispatcher() {
-  return (revenge.discord.common as any)?.flux?.Dispatcher
+export function restoreText(text: string, tokens: string[]) {
+	for (let i = 0; i < tokens.length; i++) {
+		const pattern = new RegExp('ZXQ\\s*MINA\\s*TOKEN\\s*' + i + '\\s*ZXQ', 'gi')
+		if (!pattern.test(text)) return undefined
+		// Replacement functions preserve literal "$&" inside code and URLs.
+		text = text.replace(pattern, () => tokens[i]!)
+	}
+	return text
 }
 
-function keyFor(channelId: string, id: string) {
-  return channelId + ':' + id
+function keyFor(channel: string, id: string) {
+	return channel + ':' + id
+}
+function channelOf(message: Message, fallback?: string) {
+	return message.channel_id ?? message.channelId ?? fallback
 }
 
-function messageId(message: any) {
-  const value = message?.id
-  return typeof value === 'string' ? value : undefined
+function defer(key: string, callback: () => void) {
+	if (!active || deferred.has(key)) return
+	deferred.set(
+		key,
+		setTimeout(() => {
+			deferred.delete(key)
+			if (!active) return
+			try {
+				callback()
+			} catch (error) {
+				recordError(error)
+			}
+		}, 0),
+	)
 }
 
-function channelId(message: any, fallback?: unknown) {
-  const value =
-    message?.channel_id ??
-    message?.channelId ??
-    fallback
-
-  return typeof value === 'string' ? value : undefined
+function recordError(error: unknown) {
+	lastError = String(error)
+	console.warn('[AutoTranslator]', lastError)
 }
 
-function authorId(message: any) {
-  const value =
-    message?.author?.id ??
-    message?.authorId
-
-  return typeof value === 'string' ? value : undefined
+function cached(entry: Entry) {
+	return messageStore?.getMessage?.(entry.channel, entry.id)
 }
 
-function currentUserId() {
-  try {
-    const value = stores()?.UserStore?.getCurrentUser?.()?.id
-    return typeof value === 'string' ? value : undefined
-  } catch {
-    return undefined
-  }
+function dispatchContent(entry: Entry, content: string) {
+	const current = cached(entry)
+	if (!current || current.content === content) return
+	// Never replace a newer server edit with a late translation or restoration.
+	if (current.content !== entry.original && current.content !== entry.applied)
+		return
+	const bus = Dispatcher
+	entry.applied = content === entry.original ? undefined : content
+	try {
+		// MESSAGE_UPDATE takes a partial gateway message, not a normalized MessageRecord.
+		void Promise.resolve(
+			bus.dispatch({
+				type: 'MESSAGE_UPDATE',
+				message: { id: entry.id, channel_id: entry.channel, content },
+				[FLAG]: true,
+			}),
+		).catch(recordError)
+		applied++
+	} catch (error) {
+		recordError(error)
+	}
 }
 
-function rawContent(message: any) {
-  const value = message?.content
-  return typeof value === 'string' ? value : undefined
+function translate(entry: Entry) {
+	const settings = getSettings()
+	if (!active || !settings.enabled) return
+	const { prepared, tokens, translatable } = protectText(entry.original)
+	if (!translatable) return
+	const target = settings.targetLanguage
+	const epoch = generation
+	const key = keyFor(entry.channel, entry.id)
+	const ready = (entry.request ??= () => {
+		if (!active || epoch !== generation || entries.get(key) !== entry) return
+		const now = getSettings()
+		if (!now.enabled || now.targetLanguage !== target) return
+		const result = getTranslation(prepared, target, ready)
+		if (result === undefined) return
+		const restored = restoreText(result, tokens)
+		if (restored !== undefined) dispatchContent(entry, restored)
+	})
+	if (getTranslation(prepared, target, ready) !== undefined) {
+		defer('apply:' + key, ready)
+	}
 }
 
-function shouldHandle(message: any) {
-  const content = rawContent(message)
-  if (!content || content.trim().length < 2) return false
-
-  const author = authorId(message)
-  if (!author) return false
-
-  const self = currentUserId()
-  if (self && author === self) return false
-
-  return true
+function observe(message: Message | undefined, fallback?: string) {
+	if (!active || !message || typeof message.content !== 'string') return
+	const channel = channelOf(message, fallback)
+	if (typeof channel !== 'string' || typeof message.id !== 'string') return
+	const key = keyFor(channel, message.id)
+	const old = entries.get(key)
+	if (
+		old &&
+		(message.content === old.original || message.content === old.applied)
+	) {
+		translate(old)
+		return
+	}
+	const author = message.author?.id ?? message.authorId
+	const self = userStore?.getCurrentUser?.()?.id
+	// Wait for UserStore rather than translating outgoing messages during startup.
+	if (!self || !author || author === self) return
+	if (old) entries.delete(key)
+	if (!shouldTranslate(message.content)) return
+	const entry: Entry = { id: message.id, channel, original: message.content }
+	entries.set(key, entry)
+	observed++
+	while (entries.size > 500) {
+		const first = entries.keys().next().value!
+		const evicted = entries.get(first)!
+		if (evicted.applied) dispatchContent(evicted, evicted.original)
+		entries.delete(first)
+	}
+	translate(entry)
 }
 
-function remember(entry: MessageEntry) {
-  const key = keyFor(entry.channelId, entry.id)
-
-  if (entries.has(key)) entries.delete(key)
-  entries.set(key, entry)
-
-  while (entries.size > MAX_TRACKED_MESSAGES) {
-    const oldest = entries.keys().next()
-    if (oldest.done) break
-    entries.delete(oldest.value)
-  }
+function scan(messages: any, channel?: string) {
+	if (Array.isArray(messages))
+		messages.forEach(message => observe(message, channel))
+	else if (Array.isArray(messages?._array)) scan(messages._array, channel)
+	else if (typeof messages?.toArray === 'function')
+		scan(messages.toArray(), channel)
+	else if (typeof messages?.values === 'function') {
+		for (const message of messages.values()) observe(message, channel)
+	} else if (typeof messages?.forEach === 'function') {
+		messages.forEach((message: Message) => observe(message, channel))
+	}
 }
 
-const TOKEN_PATTERN =
-  /(```[\s\S]*?```|`[^`\n]+`|https?:\/\/\S+|<a?:[^:>\s]+:\d+>|<@!?\d+>|<@&\d+>|<#\d+>|<t:\d+(?::[A-Za-z])?>|<\/[^:>]+:\d+>)/g
-
-function protectText(text: string) {
-  const tokens: string[] = []
-
-  const prepared = text.replace(TOKEN_PATTERN, token => {
-    const index = tokens.push(token) - 1
-    return 'ZXQMINATOKEN' + index + 'ZXQ'
-  })
-
-  return { prepared, tokens }
-}
-
-function restoreText(text: string, tokens: string[]) {
-  let restored = text
-
-  for (let index = 0; index < tokens.length; index++) {
-    const token = tokens[index]
-    const marker = new RegExp(
-      'ZXQ\\s*MINA\\s*TOKEN\\s*' + index + '\\s*ZXQ',
-      'gi',
-    )
-    restored = restored.replace(marker, token)
-  }
-
-  return restored
-}
-
-function toPlainMessage(message: any, channel: string, content: string) {
-  let raw: any
-
-  try {
-    raw =
-      typeof message?.toJS === 'function'
-        ? message.toJS()
-        : { ...message }
-  } catch {
-    raw = {}
-  }
-
-  raw = {
-    ...raw,
-    id: messageId(message) ?? raw?.id,
-    content,
-    channel_id: raw?.channel_id ?? channel,
-  }
-
-  if (raw.author == null && message?.author != null) {
-    raw.author = message.author
-  }
-
-  return raw
-}
-
-function getCachedMessage(channel: string, id: string) {
-  try {
-    const store = stores()?.MessageStore
-    const direct = store?.getMessage?.(channel, id)
-    if (direct) return direct
-
-    const cache = store?.getMessages?.(channel)
-    const list: any[] = []
-
-    if (Array.isArray(cache)) list.push(...cache)
-    else if (Array.isArray(cache?._array)) list.push(...cache._array)
-    else if (typeof cache?.forEach === 'function') {
-      cache.forEach((item: any) => list.push(item))
-    }
-
-    return list.find(item => messageId(item) === id)
-  } catch {
-    return undefined
-  }
-}
-
-function dispatchContent(entry: MessageEntry, content: string) {
-  try {
-    const bus = dispatcher()
-    if (typeof bus?.dispatch !== 'function') return
-
-    const current =
-      getCachedMessage(entry.channelId, entry.id) ??
-      {
-        id: entry.id,
-        channel_id: entry.channelId,
-        content: entry.original,
-      }
-
-    const payload = toPlainMessage(
-      current,
-      entry.channelId,
-      content,
-    )
-
-    bus.dispatch({
-      type: 'MESSAGE_UPDATE',
-      message: payload,
-      [SYNTHETIC_FLAG]: true,
-    })
-  } catch (error) {
-    console.warn(
-      '[AutoTranslator] local message update failed:',
-      String(error),
-    )
-  }
-}
-
-function applyTranslation(
-  entry: MessageEntry,
-  target: string,
-  translatedProtected: string,
-  tokens: string[],
-) {
-  const currentEntry = entries.get(
-    keyFor(entry.channelId, entry.id),
-  )
-
-  if (!currentEntry) return
-  if (currentEntry.original !== entry.original) return
-
-  const translated = restoreText(
-    translatedProtected,
-    tokens,
-  ).trim()
-
-  currentEntry.target = target
-  currentEntry.translated = translated
-
-  if (!translated || translated === currentEntry.original) return
-
-  dispatchContent(currentEntry, translated)
-}
-
-function queueTranslation(entry: MessageEntry) {
-  const settings = getSettings()
-  if (!settings.enabled) return
-
-  const target = settings.targetLanguage
-  const requestKey =
-    keyFor(entry.channelId, entry.id) +
-    '\u0000' +
-    target +
-    '\u0000' +
-    entry.original
-
-  if (pending.has(requestKey)) return
-
-  const { prepared, tokens } = protectText(entry.original)
-
-  const onReady = () => {
-    const clearTimer = pending.get(requestKey)
-    if (clearTimer !== undefined) {
-      clearTimeout(clearTimer)
-      pending.delete(requestKey)
-    }
-
-    const translated = getTranslation(
-      prepared,
-      target,
-      () => {},
-    )
-
-    if (translated !== undefined) {
-      applyTranslation(
-        entry,
-        target,
-        translated,
-        tokens,
-      )
-    }
-  }
-
-  const immediate = getTranslation(
-    prepared,
-    target,
-    onReady,
-  )
-
-  if (immediate !== undefined) {
-    const timer = setTimeout(() => {
-      pending.delete(requestKey)
-      applyTranslation(
-        entry,
-        target,
-        immediate,
-        tokens,
-      )
-    }, 0)
-
-    pending.set(requestKey, timer as unknown as number)
-    return
-  }
-
-  const timer = setTimeout(() => {
-    pending.delete(requestKey)
-  }, RETRY_CLEAR_MS)
-
-  pending.set(requestKey, timer as unknown as number)
-}
-
-function observeMessage(message: any, fallbackChannel?: unknown) {
-  if (!shouldHandle(message)) return
-
-  const id = messageId(message)
-  const channel = channelId(message, fallbackChannel)
-  const content = rawContent(message)
-
-  if (!id || !channel || content === undefined) return
-
-  const key = keyFor(channel, id)
-  const existing = entries.get(key)
-
-  if (!existing) {
-    const entry: MessageEntry = {
-      id,
-      channelId: channel,
-      original: content,
-    }
-
-    remember(entry)
-    queueTranslation(entry)
-    return
-  }
-
-  if (content === existing.translated) {
-    if (
-      existing.target !==
-      getSettings().targetLanguage
-    ) {
-      queueTranslation(existing)
-    }
-    return
-  }
-
-  if (content !== existing.original) {
-    existing.original = content
-    existing.translated = undefined
-    existing.target = undefined
-    remember(existing)
-  }
-
-  queueTranslation(existing)
-}
-
-function scanMessages(cache: any, fallbackChannel?: unknown) {
-  const list: any[] = []
-
-  try {
-    if (Array.isArray(cache)) list.push(...cache)
-    else if (Array.isArray(cache?._array)) {
-      list.push(...cache._array)
-    } else if (typeof cache?.forEach === 'function') {
-      cache.forEach((message: any) => list.push(message))
-    }
-  } catch {
-    return
-  }
-
-  for (const message of list) {
-    observeMessage(message, fallbackChannel)
-  }
-}
-
-function defer(callback: () => void) {
-  const timer = setTimeout(() => {
-    deferred.delete(timer as unknown as number)
-
-    try {
-      callback()
-    } catch (error) {
-      console.error(
-        '[AutoTranslator] deferred task failed:',
-        error,
-      )
-    }
-  }, 0)
-
-  deferred.add(timer as unknown as number)
-}
-
-function scanCurrentChannel() {
-  try {
-    const state = stores()
-    const selected =
-      state?.SelectedChannelStore?.getChannelId?.()
-
-    if (typeof selected !== 'string' || !selected) {
-      return
-    }
-
-    const cache =
-      state?.MessageStore?.getMessages?.(selected)
-
-    scanMessages(cache, selected)
-  } catch (error) {
-    console.warn(
-      '[AutoTranslator] current channel scan failed:',
-      String(error),
-    )
-  }
-}
-
-function restoreAll() {
-  for (const entry of entries.values()) {
-    if (
-      entry.translated !== undefined &&
-      entry.translated !== entry.original
-    ) {
-      dispatchContent(entry, entry.original)
-    }
-
-    entry.translated = undefined
-    entry.target = undefined
-  }
+function scanCurrent() {
+	const channel = selectedStore?.getChannelId?.()
+	if (typeof channel === 'string')
+		scan(messageStore?.getMessages?.(channel), channel)
 }
 
 export function repaintAll(originalOnly = false) {
-  if (originalOnly || !getSettings().enabled) {
-    restoreAll()
-    return
-  }
-
-  for (const entry of entries.values()) {
-    queueTranslation(entry)
-  }
-
-  defer(scanCurrentChannel)
+	generation++
+	for (const entry of entries.values()) {
+		entry.request = undefined
+		if (entry.applied) dispatchContent(entry, entry.original)
+		if (!originalOnly) translate(entry)
+	}
+	if (!originalOnly) defer('current', scanCurrent)
 }
 
-function patchMessageStore(
-  cleanup: (...fns: Array<() => any>) => void,
-) {
-  try {
-    const store = stores()?.MessageStore
+export function patchChatManager(cleanup: Cleanup) {
+	active = true
+	const session = ++lifecycle
+	const alive = () => active && session === lifecycle
+	// A one-time lookup can miss Discord stores that initialize after the plugin.
+	const getStore = revenge.discord.flux.getStore
+	cleanup(
+		getStore('MessageStore', (store: any) => {
+			if (!alive()) return
+			if (
+				typeof store.getMessages !== 'function' ||
+				typeof store.getMessage !== 'function'
+			) {
+				recordError('MessageStore incompatível com esta versão do Discord')
+				return
+			}
+			messageStore = store
+			cleanup(
+				revenge.patcher.instead(
+					store,
+					'getMessages',
+					function (args: any[], original: any) {
+						const result = Reflect.apply(original, this, args)
+						// Scan the returned collection without calling the patched getter again.
+						defer('scan:' + args[0], () => scan(result, args[0]))
+						return result
+					},
+				),
+			)
+			defer('current', scanCurrent)
+		}),
+	)
+	cleanup(
+		getStore('UserStore', store => {
+			if (alive()) {
+				userStore = store
+				defer('current', scanCurrent)
+			}
+		}),
+	)
+	cleanup(
+		getStore('SelectedChannelStore', store => {
+			if (!alive()) return
+			selectedStore = store
+			store.addChangeListener?.(onChannelChanged)
+			cleanup(() => store.removeChangeListener?.(onChannelChanged))
+			defer('current', scanCurrent)
+		}),
+	)
 
-    if (typeof store?.getMessages !== 'function') {
-      console.warn(
-        '[AutoTranslator] MessageStore.getMessages unavailable',
-      )
-      return
-    }
-
-    cleanup(
-      revenge.patcher.after(
-        store,
-        'getMessages',
-        (ret: any) => {
-          defer(() => scanMessages(ret))
-          return ret
-        },
-      ),
-    )
-
-    console.log(
-      '[AutoTranslator] MessageStore.getMessages hooked',
-    )
-  } catch (error) {
-    console.error(
-      '[AutoTranslator] MessageStore hook failed:',
-      error,
-    )
-  }
+	const watch = revenge.discord.flux.onFluxEventDispatched
+	for (const type of [
+		'MESSAGE_CREATE',
+		'MESSAGE_UPDATE',
+		'LOAD_MESSAGES_SUCCESS',
+		'CHANNEL_SELECT',
+		'CONNECTION_OPEN',
+	]) {
+		cleanup(
+			watch(type, (payload: any) => {
+				if (!active || payload[FLAG]) return payload
+				if (type === 'MESSAGE_CREATE' || type === 'MESSAGE_UPDATE') {
+					const raw = payload.message
+					const channel = raw && channelOf(raw, payload.channelId)
+					// Flux hooks run BEFORE stores. Read partial edits after the dispatch.
+					if (raw?.id && channel)
+						defer('message:' + keyFor(channel, raw.id), () => {
+							observe(
+								messageStore?.getMessage?.(channel, raw.id) ?? raw,
+								channel,
+							)
+						})
+				} else if (type === 'LOAD_MESSAGES_SUCCESS') {
+					defer('load:' + payload.channelId, () => {
+						scan(payload.messages ?? payload.messageRecords, payload.channelId)
+						scanCurrent()
+					})
+				} else onChannelChanged()
+				return payload
+			}),
+		)
+	}
+	cleanup(
+		watch('MESSAGE_DELETE', (payload: any) => {
+			entries.delete(
+				keyFor(payload.channelId ?? payload.channel_id, payload.id),
+			)
+			return payload
+		}),
+	)
+	defer('current', scanCurrent)
 }
 
-function watchFlux(
-  cleanup: (...fns: Array<() => any>) => void,
-) {
-  try {
-    const onFluxEventDispatched =
-      (revenge.discord.flux as any)
-        ?.onFluxEventDispatched
-
-    if (typeof onFluxEventDispatched !== 'function') {
-      console.warn(
-        '[AutoTranslator] Flux event watcher unavailable',
-      )
-      return
-    }
-
-    cleanup(
-      onFluxEventDispatched(
-        'MESSAGE_CREATE',
-        (payload: any) => {
-          try {
-            observeMessage(
-              payload?.message,
-              payload?.channelId,
-            )
-          } catch (error) {
-            console.error(
-              '[AutoTranslator] MESSAGE_CREATE failed:',
-              error,
-            )
-          }
-
-          return payload
-        },
-      ),
-    )
-
-    cleanup(
-      onFluxEventDispatched(
-        'MESSAGE_UPDATE',
-        (payload: any) => {
-          try {
-            if (payload?.[SYNTHETIC_FLAG]) {
-              return payload
-            }
-
-            observeMessage(
-              payload?.message,
-              payload?.channelId,
-            )
-          } catch (error) {
-            console.error(
-              '[AutoTranslator] MESSAGE_UPDATE failed:',
-              error,
-            )
-          }
-
-          return payload
-        },
-      ),
-    )
-
-    cleanup(
-      onFluxEventDispatched(
-        'LOAD_MESSAGES_SUCCESS',
-        (payload: any) => {
-          try {
-            const messages =
-              payload?.messages ??
-              payload?.messageRecords
-
-            defer(() =>
-              scanMessages(
-                messages,
-                payload?.channelId,
-              ),
-            )
-          } catch (error) {
-            console.error(
-              '[AutoTranslator] LOAD_MESSAGES_SUCCESS failed:',
-              error,
-            )
-          }
-
-          return payload
-        },
-      ),
-    )
-
-    console.log(
-      '[AutoTranslator] Flux message watchers installed',
-    )
-  } catch (error) {
-    console.error(
-      '[AutoTranslator] Flux watcher setup failed:',
-      error,
-    )
-  }
+function onChannelChanged() {
+	defer('current', scanCurrent)
 }
 
-export function patchChatManager(
-  cleanup: (...fns: Array<() => any>) => void,
-) {
-  patchMessageStore(cleanup)
-  watchFlux(cleanup)
-  defer(scanCurrentChannel)
+export function chatStatus() {
+	return {
+		ready: Boolean(messageStore && userStore && selectedStore),
+		observed,
+		applied,
+		lastError,
+	}
 }
 
 export function resetChat() {
-  restoreAll()
-
-  for (const timer of pending.values()) {
-    clearTimeout(timer)
-  }
-
-  for (const timer of deferred) {
-    clearTimeout(timer)
-  }
-
-  pending.clear()
-  deferred.clear()
-  entries.clear()
+	active = false
+	lifecycle++
+	generation++
+	for (const timer of deferred.values()) clearTimeout(timer)
+	deferred.clear()
+	for (const entry of entries.values())
+		if (entry.applied) dispatchContent(entry, entry.original)
+	entries.clear()
+	messageStore = userStore = selectedStore = undefined
 }
