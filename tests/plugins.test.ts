@@ -273,6 +273,158 @@ test('outgoing translation preserves Discord tokens and falls back to original o
 	expect(failing.sent.at(-1)?.[1].content).toBe('Não bloquear meu envio')
 })
 
+
+test('Large File Sender leaves files below the limit untouched', async () => {
+	const app = open('large-file-sender', {
+		nativeMethods: {
+			'dev.minatanky.large-file-sender.splitFile': () => ({
+				split: false,
+				size: 1024,
+			}),
+			'dev.minatanky.large-file-sender.cleanupSession': () => true,
+		},
+	})
+	await app.start()
+	await flush()
+	await app.attach([{ uri: 'content://small', filename: 'small.zip' }])
+	expect(app.uploads).toHaveLength(1)
+	expect(app.uploads[0].files[0].uri).toBe('content://small')
+	expect(app.nativeCalls[0].args[2]).toBe(19 * 1024 * 1024)
+})
+
+test('Large File Sender replaces an oversized file with uploadable parts', async () => {
+	const parts = Array.from({ length: 3 }, (_, index) => ({
+		uri: 'file:///parts/p' + (index + 1),
+		filename: 'archive.zip.mina.part00' + (index + 1) + '-of003',
+		size: 1024,
+		index: index + 1,
+		count: 3,
+	}))
+	const app = open('large-file-sender', {
+		nativeMethods: {
+			'dev.minatanky.large-file-sender.splitFile': () => ({
+				split: true,
+				size: 50 * 1024 * 1024,
+				sessionId: 'session-123456',
+				parts,
+			}),
+			'dev.minatanky.large-file-sender.cleanupSession': () => true,
+		},
+	})
+	await app.start()
+	await flush()
+	await app.attach([
+		{
+			id: 'original',
+			uri: 'content://large',
+			originalUri: 'content://large',
+			filename: 'archive.zip',
+			mimeType: 'application/zip',
+			platform: 1,
+			origin: 0,
+		},
+	])
+	expect(app.uploads).toHaveLength(1)
+	expect(app.uploads[0].files).toHaveLength(3)
+	expect(app.uploads[0].files[0]).toMatchObject({
+		uri: 'file:///parts/p1',
+		filename: 'archive.zip.mina.part001-of003',
+		mimeType: 'application/octet-stream',
+	})
+	expect(app.toasts.at(-1)).toContain('3 partes')
+
+	await app.dispatch({
+		type: 'MESSAGE_CREATE',
+		message: {
+			id: 'sent-1',
+			channel_id: 'one',
+			author: { id: 'self' },
+			attachments: parts.map(part => ({ filename: part.filename })),
+		},
+	})
+	await flush()
+	expect(
+		app.nativeCalls.some(
+			call => call.name === 'dev.minatanky.large-file-sender.cleanupSession',
+		),
+	).toBe(true)
+})
+
+test('Large File Sender queues more than ten parts across messages', async () => {
+	const parts = Array.from({ length: 12 }, (_, index) => ({
+		uri: 'file:///parts/p' + (index + 1),
+		filename:
+			'huge.bin.mina.part' +
+			String(index + 1).padStart(3, '0') +
+			'-of012',
+		size: 1024,
+		index: index + 1,
+		count: 12,
+	}))
+	const app = open('large-file-sender', {
+		nativeMethods: {
+			'dev.minatanky.large-file-sender.splitFile': () => ({
+				split: true,
+				size: 220 * 1024 * 1024,
+				sessionId: 'session-queue-123',
+				parts,
+			}),
+			'dev.minatanky.large-file-sender.cleanupSession': () => true,
+		},
+	})
+	await app.start()
+	await flush()
+	await app.attach([{ uri: 'content://huge', filename: 'huge.bin' }])
+	expect(app.uploads[0].files).toHaveLength(10)
+
+	await app.dispatch({
+		type: 'MESSAGE_CREATE',
+		message: {
+			id: 'batch-1',
+			channel_id: 'one',
+			author: { id: 'self' },
+			attachments: parts
+				.slice(0, 10)
+				.map(part => ({ filename: part.filename })),
+		},
+	})
+	await flush(25)
+	expect(app.uploads).toHaveLength(2)
+	expect(app.uploads[1].files).toHaveLength(2)
+	expect(app.toasts.at(-1)).toContain('Lote 2/2')
+
+	await app.dispatch({
+		type: 'MESSAGE_CREATE',
+		message: {
+			id: 'batch-2',
+			channel_id: 'one',
+			author: { id: 'self' },
+			attachments: parts
+				.slice(10)
+				.map(part => ({ filename: part.filename })),
+		},
+	})
+	await flush()
+	expect(app.toasts.at(-1)).toContain('Todas as partes')
+})
+
+test('Large File Sender falls back to Discord when native splitting fails', async () => {
+	const app = open('large-file-sender', {
+		nativeMethods: {
+			'dev.minatanky.large-file-sender.splitFile': () => {
+				throw new Error('cannot read content uri')
+			},
+			'dev.minatanky.large-file-sender.cleanupSession': () => true,
+		},
+	})
+	await app.start()
+	await flush()
+	await app.attach([{ uri: 'content://broken', filename: 'broken.bin' }])
+	expect(app.uploads).toHaveLength(1)
+	expect(app.uploads[0].files[0].uri).toBe('content://broken')
+	expect(app.toasts.at(-1)).toContain('anexo original')
+})
+
 test('Motion installs the root hook synchronously before storage finishes loading', async () => {
 	const app = open('motion')
 	const starting = app.start()
