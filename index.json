@@ -1,0 +1,30 @@
+{
+  "format": 1,
+  "name": "Mina Revenge Plugins",
+  "description": "Revenge Next plugins maintained by Mina.",
+  "plugins": {
+    "dev.minatanky.auto-translator": {
+      "name": "Auto Translator",
+      "description": "Automatically translates messages from other users into the language you choose.",
+      "author": "Mina",
+      "channels": {
+        "latest": "0.1.0"
+      },
+      "versions": {
+        "0.1.0": {
+          "url": "https://minatanky-source.github.io/mina-revenge-plugins/pool/dev.minatanky.auto-translator@0.1.0.zip",
+          "sha256": "1cfb5923baeb7d13160e3049e3eb3b9592b76b5370b96f74cd3b2165ba2bc976",
+          "size": 3283,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    }
+  }
+}
