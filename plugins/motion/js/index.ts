@@ -12,7 +12,7 @@ export default plugin<{ jsonStorage: MotionSettings }>({
     await api.jsonStorage.get()
 
     console.warn(
-      '[Motion] Runtime effects are temporarily disabled in 0.1.1 for stability.',
+      '[Motion] Runtime effects are temporarily disabled in 0.1.2 for stability.',
     )
   },
 
