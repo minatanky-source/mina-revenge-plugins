@@ -1,9 +1,9 @@
 name: Recover MINA VFX public deploy
 
 on:
-  push:
+  pull_request:
     branches:
-      - tmp-mina-vfx-recovery
+      - main
 
 permissions:
   contents: read
