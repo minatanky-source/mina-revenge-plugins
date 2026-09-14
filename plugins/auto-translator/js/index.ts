@@ -1,8 +1,16 @@
-import {\n\tchatStatus,\n\tpatchChatManager,\n\tprotectText,\n\trepaintAll,\n\tresetChat,\n\trestoreText,\n} from './chat'
+import {
+	chatStatus,
+	patchChatManager,
+	protectText,
+	repaintAll,
+	resetChat,
+	restoreText,
+} from './chat'
 import { DEFAULTS, setStorage } from './state'
 import {
 	resetTranslations,
 	testTranslation,
+	translateNow,
 	translationStatus,
 } from './translator'
 import type { TranslatorSettings } from './state'
