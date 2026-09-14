@@ -41,6 +41,27 @@ export async function testTranslation(target: string) {
 	return googleTranslate('Hello! How are you?', target)
 }
 
+export async function translateNow(text: string, target: string) {
+	if (!shouldTranslate(text)) return text
+	const key = keyFor(text, target)
+	const cached = cache.get(key)
+	if (cached !== undefined) return cached
+	try {
+		const result = await googleTranslate(text, target)
+		cache.set(key, result)
+		trimMap(cache)
+		failures.delete(key)
+		completed++
+		lastError = ''
+		return result
+	} catch (error) {
+		lastError = String(error)
+		failures.set(key, Date.now() + RETRY_DELAY)
+		trimMap(failures)
+		throw error
+	}
+}
+
 async function googleTranslate(text: string, target: string, task?: Task) {
 	const controller = new AbortController()
 	if (task) task.controller = controller
