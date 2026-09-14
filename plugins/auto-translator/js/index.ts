@@ -1,4 +1,4 @@
-import { chatStatus, patchChatManager, repaintAll, resetChat } from './chat'
+import {\n\tchatStatus,\n\tpatchChatManager,\n\tprotectText,\n\trepaintAll,\n\tresetChat,\n\trestoreText,\n} from './chat'
 import { DEFAULTS, setStorage } from './state'
 import {
 	resetTranslations,
@@ -64,7 +64,43 @@ function installLocalCommands(
 						const text =
 							typeof message?.content === 'string' ? message.content.trim() : ''
 
-						if (!commandsActive || !text.startsWith('!tr')) {
+						if (!commandsActive) {
+							return original.apply(this, args)
+						}
+
+						if (!text.startsWith('!tr')) {
+							const current = {
+								...DEFAULTS,
+								...(api.jsonStorage.cache ?? {}),
+							}
+
+							if (
+								!current.outgoingEnabled ||
+								typeof message?.content !== 'string'
+							) {
+								return original.apply(this, args)
+							}
+
+							const { prepared, tokens, translatable } = protectText(message.content)
+							if (!translatable) return original.apply(this, args)
+
+							try {
+								const translated = await translateNow(
+									prepared,
+									current.outgoingTargetLanguage,
+								)
+								const restored = restoreText(translated, tokens)
+
+								if (restored && restored !== message.content) {
+									args[1] = { ...message, content: restored }
+								}
+							} catch (error) {
+								console.warn(
+									'[AutoTranslator] tradução de saída falhou:',
+									String(error),
+								)
+							}
+
 							return original.apply(this, args)
 						}
 
@@ -84,6 +120,46 @@ function installLocalCommands(
 						if (action === 'off') {
 							await api.jsonStorage.set({ enabled: false })
 							showLocalMessage('Traducao automatica desativada.')
+							return undefined
+						}
+
+						if (action === 'out') {
+							const sub = (parts[2] ?? 'status').toLowerCase()
+
+							if (sub === 'on') {
+								await api.jsonStorage.set({ outgoingEnabled: true })
+								showLocalMessage('Tradução automática de saída ativada.')
+								return undefined
+							}
+
+							if (sub === 'off') {
+								await api.jsonStorage.set({ outgoingEnabled: false })
+								showLocalMessage('Tradução automática de saída desativada.')
+								return undefined
+							}
+
+							if (/^[A-Za-z-]{2,20}$/.test(parts[2] ?? '')) {
+								const outgoingTargetLanguage = normalizeLanguage(parts[2])
+								await api.jsonStorage.set({
+									outgoingTargetLanguage,
+									outgoingEnabled: true,
+								})
+								showLocalMessage(
+									'Idioma de saída alterado para: ' + outgoingTargetLanguage,
+								)
+								return undefined
+							}
+
+							const current = {
+								...DEFAULTS,
+								...(api.jsonStorage.cache ?? {}),
+							}
+							showLocalMessage(
+								'Saída: ' +
+									(current.outgoingEnabled ? 'ativada' : 'desativada') +
+									'\nIdioma de saída: ' +
+									current.outgoingTargetLanguage,
+							)
 							return undefined
 						}
 
@@ -120,8 +196,12 @@ function installLocalCommands(
 							showLocalMessage(
 								'Status: ' +
 									(current.enabled ? 'ativado' : 'desativado') +
-									'\nIdioma: ' +
+									'\nIdioma de entrada: ' +
 									current.targetLanguage +
+									'\nSaída automática: ' +
+									(current.outgoingEnabled ? 'ativada' : 'desativada') +
+									'\nIdioma de saída: ' +
+									current.outgoingTargetLanguage +
 									'\nChat: ' +
 									(chatStatus().ready
 										? 'conectado'
@@ -147,8 +227,11 @@ function installLocalCommands(
 								'!tr pt      - traduz para portugues\n' +
 									'!tr en      - traduz para ingles\n' +
 									'!tr es      - traduz para espanhol\n' +
-									'!tr on      - ativa\n' +
-									'!tr off     - desativa\n' +
+									'!tr on      - ativa tradução recebida\n' +
+									'!tr off     - desativa tradução recebida\n' +
+									'!tr out en  - traduz suas mensagens para inglês\n' +
+									'!tr out on  - ativa tradução das suas mensagens\n' +
+									'!tr out off - desativa tradução das suas mensagens\n' +
 									'!tr status  - mostra o diagnóstico\n' +
 									'!tr test    - testa o serviço de tradução\n' +
 									'!tr retry   - tenta traduzir novamente',
