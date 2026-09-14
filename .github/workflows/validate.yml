@@ -36,6 +36,18 @@ jobs:
       - name: Test plugin runtime behavior
         run: bun run test
 
+      - name: Check out Revenge native API
+        if: ${{ hashFiles('plugins/*/src/main/**/*.kt') != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: revenge-mod/revenge-xposed
+          ref: b4de869199c3b1bf4537450fdf2d410d4eb3031a
+          path: .build/revenge-xposed
+
+      - name: Publish Revenge API to Maven local
+        if: ${{ hashFiles('plugins/*/src/main/**/*.kt') != '' }}
+        run: .build/revenge-xposed/gradlew -p .build/revenge-xposed --no-daemon :api:publishToMavenLocal
+
       - name: Build all plugins
         run: ./gradlew --no-daemon packageAllPlugins
 
