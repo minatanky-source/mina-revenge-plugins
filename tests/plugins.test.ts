@@ -85,7 +85,7 @@ test('updates only local content and restores it when disabled', async () => {
 
 test('preserves mentions, URLs and code including replacement metacharacters', async () => {
 	const app = open()
-	const original = 'Hello <@123> `a$&b` https://example.com/a$&b'
+	const original = "Oi <@123> `a	const original = 'Hello <@123> `a$&b` https://example.com/a$&b'b` https://example.com/a	const original = 'Hello <@123> `a$&b` https://example.com/a$&b'b"
 	app.add('1', original)
 	app.add('2', '```Hello code```')
 	await app.start()
