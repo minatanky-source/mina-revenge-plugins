@@ -12,7 +12,7 @@
       },
       "versions": {
         "0.1.0": {
-          "url": "https://minatanky-source.github.io/mina-revenge-plugins/pool/dev.minatanky.auto-translator@0.1.0.zip",
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.auto-translator@0.1.0.zip",
           "sha256": "1cfb5923baeb7d13160e3049e3eb3b9592b76b5370b96f74cd3b2165ba2bc976",
           "size": 3283,
           "dependencies": {
@@ -25,7 +25,7 @@
           }
         },
         "0.1.1": {
-          "url": "https://minatanky-source.github.io/mina-revenge-plugins/pool/dev.minatanky.auto-translator@0.1.1.zip",
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.auto-translator@0.1.1.zip",
           "sha256": "39417f56202f52a85d1c9cf69ad5573ee6fb8fbce8fdd135542e82c0b37197b9",
           "size": 3327,
           "dependencies": {
