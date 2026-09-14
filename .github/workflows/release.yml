@@ -50,7 +50,7 @@ jobs:
         run: .github/scripts/plan-releases.sh
 
       - name: Check out Revenge native API
-        if: ${{ steps.plan.outputs.count != '0' && hashFiles('plugins/*/src/main/**/*.kt') != '' }}
+        if: steps.plan.outputs.count != '0'
         uses: actions/checkout@v4
         with:
           repository: revenge-mod/revenge-xposed
@@ -58,7 +58,7 @@ jobs:
           path: .build/revenge-xposed
 
       - name: Publish Revenge API to Maven local
-        if: ${{ steps.plan.outputs.count != '0' && hashFiles('plugins/*/src/main/**/*.kt') != '' }}
+        if: steps.plan.outputs.count != '0'
         run: .build/revenge-xposed/gradlew -p .build/revenge-xposed --no-daemon :api:publishToMavenLocal
 
       - name: Build plugins
