@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "id": "dev.minatanky.motion",
+  "name": "Motion",
+  "description": "Adds smooth, configurable animations across Discord.",
+  "author": "Mina",
+  "version": "0.1.0",
+  "dependencies": {
+    "revenge.api": { "version": ">=1 <2" },
+    "discord": { "version": "*" }
+  },
+  "dist": {
+    "script": "index.js"
+  }
+}

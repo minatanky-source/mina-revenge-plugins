@@ -13,15 +13,7 @@ pages_base_url() {
         return
     fi
 
-    local owner="${GITHUB_REPOSITORY%%/*}"
-    local repo="${GITHUB_REPOSITORY#*/}"
-    owner="${owner,,}"
-
-    # User and organization sites serve from the domain root.
-    local base="https://${owner}.github.io"
-    [ "$repo" = "${owner}.github.io" ] || base="${base}/${repo}"
-
-    printf '%s' "$base"
+    printf 'https://raw.githubusercontent.com/%s/%s' "$GITHUB_REPOSITORY" "$POOL_BRANCH"
 }
 
 # Commits staged pool changes and pushes them. Skips if nothing is staged.
