@@ -229,6 +229,50 @@ test('local diagnostic commands are intercepted while ordinary messages keep the
 	expect(app.sent).toHaveLength(2)
 })
 
+test('translates outgoing messages to English by default', async () => {
+	const app = open()
+	await app.start()
+	await flush()
+	expect(await app.command('Olá pessoal')).toBe('sent')
+	expect(app.sent).toHaveLength(1)
+	expect(app.sent[0][1].content).toBe('en: Olá pessoal')
+	expect(app.requests.at(-1)?.searchParams.get('tl')).toBe('en')
+})
+
+test('outgoing translation has its own language and enable switch', async () => {
+	const app = open()
+	await app.start()
+	await flush()
+	await app.command('!tr out es')
+	expect(app.sent).toHaveLength(0)
+	await app.command('Bom dia')
+	expect(app.sent.at(-1)?.[1].content).toBe('es: Bom dia')
+	await app.command('!tr out off')
+	await app.command('Mensagem original')
+	expect(app.sent.at(-1)?.[1].content).toBe('Mensagem original')
+	await app.command('!tr out on')
+	await app.command('Outra mensagem')
+	expect(app.sent.at(-1)?.[1].content).toBe('es: Outra mensagem')
+})
+
+test('outgoing translation preserves Discord tokens and falls back to original on failure', async () => {
+	const app = open()
+	await app.start()
+	await flush()
+	const original = 'Oi <@123> `atest('Motion installs the root hook synchronously before storage finishes loading', async () => {b` https://example.com/atest('Motion installs the root hook synchronously before storage finishes loading', async () => {b'
+	await app.command(original)
+	expect(app.sent.at(-1)?.[1].content).toBe('en: ' + original)
+	await app.dispose()
+
+	const failing = open('auto-translator', {
+		fetch: (async () => new Response('', { status: 429 })) as typeof fetch,
+	})
+	await failing.start()
+	await flush()
+	expect(await failing.command('Não bloquear meu envio')).toBe('sent')
+	expect(failing.sent.at(-1)?.[1].content).toBe('Não bloquear meu envio')
+})
+
 test('Motion installs the root hook synchronously before storage finishes loading', async () => {
 	const app = open('motion')
 	const starting = app.start()
