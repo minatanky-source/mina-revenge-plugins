@@ -4,7 +4,7 @@
   "name": "Large Video Sender",
   "description": "Automatically compresses oversized videos with Discord's own encoder so they fit the account upload limit.",
   "author": "Mina",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "dependencies": {
     "revenge.api": { "version": ">=1 <2" },
     "discord": { "version": "*" }
