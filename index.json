@@ -93,10 +93,10 @@
     },
     "dev.minatanky.fix-link": {
       "name": "Fix Link",
-      "description": "Automatically fixes YouTube links with Koutube and hides the rewritten URL behind a single dot.",
+      "description": "Automatically rewrites supported social links to embed-friendly providers and hides each fixed URL behind a single dot.",
       "author": "Mina",
       "channels": {
-        "latest": "0.1.1"
+        "latest": "0.2.0"
       },
       "versions": {
         "0.1.0": {
@@ -116,6 +116,19 @@
           "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.fix-link@0.1.1.zip",
           "sha256": "ee6ac98cc66c63337e2976d6931e47f0bd2c2d26e0e0d04e595f1c8ed7e15b58",
           "size": 1596,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.2.0": {
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.fix-link@0.2.0.zip",
+          "sha256": "6e69d69aab6639ae9e518cd5267ab69579cc09d5fc15ecaff71f2886ace5b315",
+          "size": 2460,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
