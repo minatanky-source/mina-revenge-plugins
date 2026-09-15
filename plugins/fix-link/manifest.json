@@ -2,9 +2,9 @@
   "format": 1,
   "id": "dev.minatanky.fix-link",
   "name": "Fix Link",
-  "description": "Automatically replaces supported video links before sending. Initial provider: YouTube via Koutube.",
+  "description": "Automatically fixes YouTube links with Koutube and hides the rewritten URL behind a single dot.",
   "author": "Mina",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "dependencies": {
     "revenge.api": { "version": ">=1 <2" },
     "discord": { "version": "*" }

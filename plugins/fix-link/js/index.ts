@@ -6,6 +6,10 @@ const TAG = '[FixLink]'
 
 const YOUTUBE_URL =
 	/\b(?:https?:\/\/)?(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)\/[^\s<>`|]+/gi
+const MASKED_YOUTUBE_URL =
+	/\[[^\]\n]*\]\((https?:\/\/(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+)\)/gi
+const ANGLED_YOUTUBE_URL =
+	/<(https?:\/\/(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)\/[^\s<>]+)>/gi
 const TRAILING_PUNCTUATION = /[),.!?;:]+$/
 
 function rewriteOne(raw: string) {
@@ -27,14 +31,22 @@ function rewriteOne(raw: string) {
 			return raw
 		}
 
-		return url.toString() + trailing
+		return '[.](' + url.toString() + ')' + trailing
 	} catch {
 		return raw
 	}
 }
 
 export function fixLinks(content: string) {
-	return content.replace(YOUTUBE_URL, rewriteOne)
+	const unwrapped = content.replace(
+		ANGLED_YOUTUBE_URL,
+		(_whole, url: string) => rewriteOne(url),
+	)
+	const masked = unwrapped.replace(
+		MASKED_YOUTUBE_URL,
+		(_whole, url: string) => rewriteOne(url),
+	)
+	return masked.replace(YOUTUBE_URL, rewriteOne)
 }
 
 function installSendPatch(
