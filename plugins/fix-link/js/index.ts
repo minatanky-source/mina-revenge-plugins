@@ -4,34 +4,185 @@ import { SettingsComponent } from './ui'
 
 const TAG = '[FixLink]'
 
-const YOUTUBE_URL =
-	/\b(?:https?:\/\/)?(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)\/[^\s<>`|]+/gi
-const MASKED_YOUTUBE_URL =
-	/\[[^\]\n]*\]\((https?:\/\/(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+)\)/gi
-const ANGLED_YOUTUBE_URL =
-	/<(https?:\/\/(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)\/[^\s<>]+)>/gi
+const SOURCE_URL = /\bhttps?:\/\/[^\s<>\`|]+/gi
+const MASKED_SOURCE_URL = /\[[^\]\n]*\]\((https?:\/\/[^\s)]+)\)/gi
+const ANGLED_SOURCE_URL = /<(https?:\/\/[^\s<>]+)>/gi
 const TRAILING_PUNCTUATION = /[),.!?;:]+$/
+
+type PlatformKey = Exclude<keyof FixLinkSettings, 'enabled'>
+
+function hostIs(host: string, domain: string) {
+	return host === domain || host.endsWith('.' + domain)
+}
+
+function setHost(url: URL, hostname: string) {
+	url.protocol = 'https:'
+	url.hostname = hostname
+	return url.toString()
+}
+
+function wrapFixEmbed(url: URL) {
+	return (
+		'https://fixembed.app/embed?url=' +
+		encodeURIComponent(url.toString())
+	)
+}
+
+function rewriteUrl(
+	url: URL,
+	settings: FixLinkSettings,
+): { platform: PlatformKey; url: string } | undefined {
+	const host = url.hostname.toLowerCase()
+
+	if (settings.youtube) {
+		if (host === 'youtu.be') {
+			return { platform: 'youtube', url: setHost(url, 'koutu.be') }
+		}
+		if (host === 'music.youtube.com') {
+			return {
+				platform: 'youtube',
+				url: setHost(url, 'music.koutube.com'),
+			}
+		}
+		if (hostIs(host, 'youtube.com')) {
+			return { platform: 'youtube', url: setHost(url, 'koutube.com') }
+		}
+	}
+
+	if (settings.twitter) {
+		if (hostIs(host, 'twitter.com')) {
+			return {
+				platform: 'twitter',
+				url: setHost(url, 'fxtwitter.com'),
+			}
+		}
+		if (hostIs(host, 'x.com')) {
+			return { platform: 'twitter', url: setHost(url, 'fixupx.com') }
+		}
+	}
+
+	if (settings.instagram && hostIs(host, 'instagram.com')) {
+		return {
+			platform: 'instagram',
+			url: setHost(url, 'oginstagram.com'),
+		}
+	}
+
+	if (settings.tiktok && hostIs(host, 'tiktok.com')) {
+		if (host === 'vm.tiktok.com') {
+			return { platform: 'tiktok', url: setHost(url, 'vm.tnktok.com') }
+		}
+		if (host === 'vt.tiktok.com') {
+			return { platform: 'tiktok', url: setHost(url, 'vt.tnktok.com') }
+		}
+		return { platform: 'tiktok', url: setHost(url, 'tnktok.com') }
+	}
+
+	if (settings.facebook && hostIs(host, 'facebook.com')) {
+		return {
+			platform: 'facebook',
+			url: setHost(url, 'facebed.seria.moe'),
+		}
+	}
+
+	if (
+		settings.pinterest &&
+		(hostIs(host, 'pinterest.com') || host === 'pin.it')
+	) {
+		return { platform: 'pinterest', url: wrapFixEmbed(url) }
+	}
+
+	if (settings.reddit) {
+		if (hostIs(host, 'reddit.com')) {
+			return { platform: 'reddit', url: setHost(url, 'rxddit.com') }
+		}
+		if (host === 'redd.it') {
+			return { platform: 'reddit', url: wrapFixEmbed(url) }
+		}
+	}
+
+	if (
+		settings.threads &&
+		(hostIs(host, 'threads.net') || hostIs(host, 'threads.com'))
+	) {
+		return {
+			platform: 'threads',
+			url: setHost(url, 'fixthreads.seria.moe'),
+		}
+	}
+
+	if (settings.bluesky && host === 'bsky.app') {
+		return { platform: 'bluesky', url: setHost(url, 'bskx.app') }
+	}
+
+	if (settings.pixiv && hostIs(host, 'pixiv.net')) {
+		return { platform: 'pixiv', url: setHost(url, 'phixiv.net') }
+	}
+
+	if (settings.twitch) {
+		if (host === 'clips.twitch.tv') {
+			const path = '/clip' + url.pathname
+			const suffix = url.search + url.hash
+			return {
+				platform: 'twitch',
+				url: 'https://fxtwitch.seria.moe' + path + suffix,
+			}
+		}
+		if (hostIs(host, 'twitch.tv')) {
+			return {
+				platform: 'twitch',
+				url: setHost(url, 'fxtwitch.seria.moe'),
+			}
+		}
+	}
+
+	if (settings.tumblr && hostIs(host, 'tumblr.com')) {
+		return { platform: 'tumblr', url: wrapFixEmbed(url) }
+	}
+
+	if (settings.deviantart) {
+		if (hostIs(host, 'deviantart.com')) {
+			return {
+				platform: 'deviantart',
+				url: setHost(url, 'fixdeviantart.com'),
+			}
+		}
+		if (host === 'sta.sh') {
+			return { platform: 'deviantart', url: wrapFixEmbed(url) }
+		}
+	}
+
+	if (settings.bilibili) {
+		if (host === 'b23.tv') {
+			const path = '/b23' + url.pathname
+			const suffix = url.search + url.hash
+			return {
+				platform: 'bilibili',
+				url: 'https://fxbilibili.seria.moe' + path + suffix,
+			}
+		}
+		if (hostIs(host, 'bilibili.com')) {
+			return {
+				platform: 'bilibili',
+				url: setHost(url, 'fxbilibili.seria.moe'),
+			}
+		}
+	}
+
+	return undefined
+}
 
 function rewriteOne(raw: string) {
 	const trailing = raw.match(TRAILING_PUNCTUATION)?.[0] ?? ''
 	const core = trailing ? raw.slice(0, -trailing.length) : raw
-	const withProtocol = /^https?:\/\//i.test(core) ? core : 'https://' + core
 
 	try {
-		const url = new URL(withProtocol)
-		const host = url.hostname.toLowerCase()
+		const url = new URL(core)
+		const result = rewriteUrl(url, getSettings())
+		if (!result) return raw
 
-		if (host === 'youtu.be') {
-			url.hostname = 'koutu.be'
-		} else if (host === 'music.youtube.com') {
-			url.hostname = 'music.koutube.com'
-		} else if (host === 'youtube.com' || host.endsWith('.youtube.com')) {
-			url.hostname = 'koutube.com'
-		} else {
-			return raw
-		}
-
-		return '[.](' + url.toString() + ')' + trailing
+		console.log(TAG, 'rewrote', result.platform, 'link')
+		return '[.](' + result.url + ')' + trailing
 	} catch {
 		return raw
 	}
@@ -39,14 +190,22 @@ function rewriteOne(raw: string) {
 
 export function fixLinks(content: string) {
 	const unwrapped = content.replace(
-		ANGLED_YOUTUBE_URL,
-		(_whole, url: string) => rewriteOne(url),
+		ANGLED_SOURCE_URL,
+		(whole, url: string) => {
+			const fixed = rewriteOne(url)
+			return fixed === url ? whole : fixed
+		},
 	)
+
 	const masked = unwrapped.replace(
-		MASKED_YOUTUBE_URL,
-		(_whole, url: string) => rewriteOne(url),
+		MASKED_SOURCE_URL,
+		(whole, url: string) => {
+			const fixed = rewriteOne(url)
+			return fixed === url ? whole : fixed
+		},
 	)
-	return masked.replace(YOUTUBE_URL, rewriteOne)
+
+	return masked.replace(SOURCE_URL, rewriteOne)
 }
 
 function installSendPatch(
@@ -86,7 +245,6 @@ function installSendPatch(
 						const fixed = fixLinks(message.content)
 						if (fixed !== message.content) {
 							args[1] = { ...message, content: fixed }
-							console.log(TAG, 'rewrote YouTube link with Koutube')
 						}
 
 						return Reflect.apply(original, this, args)

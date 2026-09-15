@@ -421,69 +421,116 @@ test('Large Video Sender supports a 9 MB target and cleanly unpatches', async ()
 	expect(restored).toBe(4_000_000)
 })
 
-test('Fix Link masks standard YouTube and short links behind a dot', async () => {
+test('Fix Link keeps YouTube support with Koutube', async () => {
 	const app = open('fix-link')
 	await app.start()
 	await flush()
 
-	await app.command('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=43s')
-	await app.command('https://youtu.be/dQw4w9WgXcQ?t=10')
+	await app.command(
+		'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=43s https://youtu.be/dQw4w9WgXcQ?t=10',
+	)
 
 	expect(app.sent[0][1].content).toBe(
-		'[.](https://koutube.com/watch?v=dQw4w9WgXcQ&t=43s)',
-	)
-	expect(app.sent[1][1].content).toBe(
-		'[.](https://koutu.be/dQw4w9WgXcQ?t=10)',
+		'[.](https://koutube.com/watch?v=dQw4w9WgXcQ&t=43s) [.](https://koutu.be/dQw4w9WgXcQ?t=10)',
 	)
 })
 
-test('Fix Link masks Shorts, mobile and YouTube Music links', async () => {
+test('Fix Link rewrites major social video platforms', async () => {
 	const app = open('fix-link')
 	await app.start()
 	await flush()
 
 	await app.command(
 		[
-			'https://youtube.com/shorts/abc123?feature=share',
-			'https://m.youtube.com/watch?v=mobile123',
-			'https://music.youtube.com/watch?v=music123&list=RDmusic123',
+			'https://x.com/mina/status/123456789',
+			'https://twitter.com/mina/status/987654321',
+			'https://www.instagram.com/reel/ABC123/',
+			'https://vm.tiktok.com/ZMTest123/',
+			'https://www.facebook.com/reel/588109690402315',
+			'https://pin.it/AbC123',
 		].join(' '),
 	)
 
 	expect(app.sent[0][1].content).toBe(
 		[
-			'[.](https://koutube.com/shorts/abc123?feature=share)',
-			'[.](https://koutube.com/watch?v=mobile123)',
-			'[.](https://music.koutube.com/watch?v=music123&list=RDmusic123)',
+			'[.](https://fixupx.com/mina/status/123456789)',
+			'[.](https://fxtwitter.com/mina/status/987654321)',
+			'[.](https://oginstagram.com/reel/ABC123/)',
+			'[.](https://vm.tnktok.com/ZMTest123/)',
+			'[.](https://facebed.seria.moe/reel/588109690402315)',
+			'[.](https://fixembed.app/embed?url=https%3A%2F%2Fpin.it%2FAbC123)',
 		].join(' '),
 	)
 })
 
-test('Fix Link removes angle wrappers so they do not suppress the embed', async () => {
+test('Fix Link supports the extended provider set', async () => {
 	const app = open('fix-link')
 	await app.start()
 	await flush()
 
 	await app.command(
-		'Olha isso: <https://youtube.com/watch?v=test123>. E ||https://youtu.be/other123||',
+		[
+			'https://www.reddit.com/r/test/comments/abc123/example/',
+			'https://www.threads.net/@user/post/ABC123',
+			'https://bsky.app/profile/user.example/post/abc123',
+			'https://www.pixiv.net/en/artworks/123456',
+			'https://clips.twitch.tv/FancyClip',
+			'https://artist.tumblr.com/post/123456/example',
+			'https://www.deviantart.com/user/art/example-123456',
+			'https://www.bilibili.com/video/BV123456',
+			'https://b23.tv/ABC123',
+		].join(' '),
 	)
 
 	expect(app.sent[0][1].content).toBe(
-		'Olha isso: [.](https://koutube.com/watch?v=test123). E ||[.](https://koutu.be/other123)||',
+		[
+			'[.](https://rxddit.com/r/test/comments/abc123/example/)',
+			'[.](https://fixthreads.seria.moe/@user/post/ABC123)',
+			'[.](https://bskx.app/profile/user.example/post/abc123)',
+			'[.](https://phixiv.net/en/artworks/123456)',
+			'[.](https://fxtwitch.seria.moe/clip/FancyClip)',
+			'[.](https://fixembed.app/embed?url=https%3A%2F%2Fartist.tumblr.com%2Fpost%2F123456%2Fexample)',
+			'[.](https://fixdeviantart.com/user/art/example-123456)',
+			'[.](https://fxbilibili.seria.moe/video/BV123456)',
+			'[.](https://fxbilibili.seria.moe/b23/ABC123)',
+		].join(' '),
 	)
 })
 
-test('Fix Link replaces an existing masked YouTube link without nesting markdown', async () => {
+test('Fix Link removes angle wrappers and avoids nested markdown', async () => {
 	const app = open('fix-link')
 	await app.start()
 	await flush()
 
 	await app.command(
-		'Veja [esse vídeo](https://youtube.com/watch?v=masked123)',
+		[
+			'<https://x.com/user/status/123>',
+			'[instagram](https://instagram.com/p/ABC123)',
+			'||https://youtube.com/watch?v=test123||',
+		].join(' '),
 	)
 
 	expect(app.sent[0][1].content).toBe(
-		'Veja [.](https://koutube.com/watch?v=masked123)',
+		[
+			'[.](https://fixupx.com/user/status/123)',
+			'[.](https://oginstagram.com/p/ABC123)',
+			'||[.](https://koutube.com/watch?v=test123)||',
+		].join(' '),
+	)
+})
+
+test('Fix Link platform toggles are independent', async () => {
+	const app = open('fix-link')
+	await app.start()
+	await flush()
+	await app.api.jsonStorage.set({ instagram: false, tiktok: false })
+
+	await app.command(
+		'https://instagram.com/reel/ABC https://tiktok.com/@u/video/123 https://x.com/u/status/123',
+	)
+
+	expect(app.sent[0][1].content).toBe(
+		'https://instagram.com/reel/ABC https://tiktok.com/@u/video/123 [.](https://fixupx.com/u/status/123)',
 	)
 })
 
@@ -493,19 +540,20 @@ test('Fix Link leaves unrelated and already-fixed links untouched', async () => 
 	await flush()
 
 	const content =
-		'https://example.com/video https://koutube.com/watch?v=ready https://koutu.be/ready'
+		'https://example.com/video https://koutube.com/watch?v=ready https://fixupx.com/u/status/1 https://oginstagram.com/p/ready'
 	await app.command(content)
 
 	expect(app.sent[0][1].content).toBe(content)
 })
 
-test('Fix Link can be disabled without affecting message sending', async () => {
+test('Fix Link master switch disables every provider', async () => {
 	const app = open('fix-link')
 	await app.start()
 	await flush()
 	await app.api.jsonStorage.set({ enabled: false })
 
-	const original = 'https://youtube.com/watch?v=disabled'
+	const original =
+		'https://youtube.com/watch?v=disabled https://x.com/u/status/123 https://instagram.com/p/ABC'
 	expect(await app.command(original)).toBe('sent')
 	expect(app.sent[0][1].content).toBe(original)
 })
