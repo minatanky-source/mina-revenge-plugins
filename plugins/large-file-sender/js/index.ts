@@ -156,6 +156,62 @@ function findVideoUploadUtils(
 	cleanup(unsubscribe)
 }
 
+
+function findKestrelExperiment(cleanup: Cleanup) {
+	const { getModules } = revenge.modules.finders
+	const { withProps } = revenge.modules.finders.filters
+	const seen = new Set<any>()
+
+	const unsubscribe = getModules(
+		withProps(
+			'getKestrelConfig',
+			'getEffectiveKestrelLimit',
+			'getKestrelVariantName',
+		),
+		(mod: any) => {
+			const host =
+				typeof mod?.getKestrelConfig === 'function'
+					? mod
+					: typeof mod?.default?.getKestrelConfig === 'function'
+						? mod.default
+						: undefined
+
+			if (!host || seen.has(host)) return
+			seen.add(host)
+
+			cleanup(
+				revenge.patcher.instead(
+					host,
+					'getKestrelConfig',
+					function (args: any[], original: any) {
+						const result = Reflect.apply(original, this, args)
+						const location = args?.[0]?.location
+
+						if (
+							getSettings().enabled &&
+							location === 'CloudUploader.native.uploadFiles' &&
+							result?.enabled
+						) {
+							console.log(
+								TAG,
+								'allowing oversized video into pre-compression pipeline',
+							)
+							return { ...result, enabled: false }
+						}
+
+						return result
+					},
+				),
+			)
+
+			console.log(TAG, 'Discord pre-compression gate hooked')
+		},
+		{ max: 5 },
+	)
+
+	cleanup(unsubscribe)
+}
+
 export default plugin<{ jsonStorage: LargeVideoSettings }>({
 	jsonStorage: {
 		load: true,
@@ -167,6 +223,7 @@ export default plugin<{ jsonStorage: LargeVideoSettings }>({
 		await api.jsonStorage.get()
 
 		findVideoUploadUtils(api.cleanup)
+		findKestrelExperiment(api.cleanup)
 		console.log(
 			TAG,
 			'started; target',

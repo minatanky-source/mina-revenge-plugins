@@ -141,7 +141,26 @@ export function runtime(
 			return { width: metadata?.width ?? targetResolution, height: metadata?.height ?? targetResolution }
 		},
 	}
-	const modules = [action, uploadActions, videoUploadUtils, AppContainer]
+	const kestrelExperiment = {
+		getKestrelConfig({ location }: any) {
+			return { enabled: true, threshold: 20, isGA: true, location }
+		},
+		getEffectiveKestrelLimit(config: any, maxFileSize: number) {
+			return config?.enabled
+				? Math.max(1024 * 1024 * (config.threshold ?? 0), maxFileSize)
+				: maxFileSize
+		},
+		getKestrelVariantName(config: any) {
+			return config?.enabled ? 'kestrel_ga' : 'control'
+		},
+	}
+	const modules = [
+		action,
+		uploadActions,
+		videoUploadUtils,
+		kestrelExperiment,
+		AppContainer,
+	]
 	const matches = (filter: any, value: any) =>
 		filter.name
 			? value.name === filter.name
@@ -392,6 +411,7 @@ export function runtime(
 		toasts,
 		nativeCalls,
 		videoUploadUtils,
+		kestrelExperiment,
 		dispatched,
 		animations,
 		values,

@@ -370,6 +370,29 @@ test('Large Video Sender adapts bitrate for longer videos', async () => {
 	).toBe(false)
 })
 
+test('Large Video Sender bypasses only Discord pre-compression Kestrel gate', async () => {
+	const app = open('large-file-sender')
+	await app.start()
+	await flush()
+
+	const pre = app.kestrelExperiment.getKestrelConfig({
+		location: 'CloudUploader.native.uploadFiles',
+	})
+	const post = app.kestrelExperiment.getKestrelConfig({
+		location: 'UploaderBase.compressAndCheckFileSize',
+	})
+
+	expect(pre.enabled).toBe(false)
+	expect(post.enabled).toBe(true)
+
+	await app.stop()
+
+	const restored = app.kestrelExperiment.getKestrelConfig({
+		location: 'CloudUploader.native.uploadFiles',
+	})
+	expect(restored.enabled).toBe(true)
+})
+
 test('Large Video Sender supports a 9 MB target and cleanly unpatches', async () => {
 	const app = open('large-file-sender')
 	await app.start()
