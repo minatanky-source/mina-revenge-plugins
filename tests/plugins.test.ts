@@ -421,7 +421,7 @@ test('Large Video Sender supports a 9 MB target and cleanly unpatches', async ()
 	expect(restored).toBe(4_000_000)
 })
 
-test('Fix Link rewrites standard YouTube and short links with Koutube', async () => {
+test('Fix Link masks standard YouTube and short links behind a dot', async () => {
 	const app = open('fix-link')
 	await app.start()
 	await flush()
@@ -430,14 +430,14 @@ test('Fix Link rewrites standard YouTube and short links with Koutube', async ()
 	await app.command('https://youtu.be/dQw4w9WgXcQ?t=10')
 
 	expect(app.sent[0][1].content).toBe(
-		'https://koutube.com/watch?v=dQw4w9WgXcQ&t=43s',
+		'[.](https://koutube.com/watch?v=dQw4w9WgXcQ&t=43s)',
 	)
 	expect(app.sent[1][1].content).toBe(
-		'https://koutu.be/dQw4w9WgXcQ?t=10',
+		'[.](https://koutu.be/dQw4w9WgXcQ?t=10)',
 	)
 })
 
-test('Fix Link supports Shorts, mobile and YouTube Music links', async () => {
+test('Fix Link masks Shorts, mobile and YouTube Music links', async () => {
 	const app = open('fix-link')
 	await app.start()
 	await flush()
@@ -452,14 +452,14 @@ test('Fix Link supports Shorts, mobile and YouTube Music links', async () => {
 
 	expect(app.sent[0][1].content).toBe(
 		[
-			'https://koutube.com/shorts/abc123?feature=share',
-			'https://koutube.com/watch?v=mobile123',
-			'https://music.koutube.com/watch?v=music123&list=RDmusic123',
+			'[.](https://koutube.com/shorts/abc123?feature=share)',
+			'[.](https://koutube.com/watch?v=mobile123)',
+			'[.](https://music.koutube.com/watch?v=music123&list=RDmusic123)',
 		].join(' '),
 	)
 })
 
-test('Fix Link preserves surrounding text and Discord link wrappers', async () => {
+test('Fix Link removes angle wrappers so they do not suppress the embed', async () => {
 	const app = open('fix-link')
 	await app.start()
 	await flush()
@@ -469,7 +469,21 @@ test('Fix Link preserves surrounding text and Discord link wrappers', async () =
 	)
 
 	expect(app.sent[0][1].content).toBe(
-		'Olha isso: <https://koutube.com/watch?v=test123>. E ||https://koutu.be/other123||',
+		'Olha isso: [.](https://koutube.com/watch?v=test123). E ||[.](https://koutu.be/other123)||',
+	)
+})
+
+test('Fix Link replaces an existing masked YouTube link without nesting markdown', async () => {
+	const app = open('fix-link')
+	await app.start()
+	await flush()
+
+	await app.command(
+		'Veja [esse vídeo](https://youtube.com/watch?v=masked123)',
+	)
+
+	expect(app.sent[0][1].content).toBe(
+		'Veja [.](https://koutube.com/watch?v=masked123)',
 	)
 })
 
