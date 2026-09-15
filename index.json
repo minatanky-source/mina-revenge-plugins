@@ -96,7 +96,7 @@
       "description": "Automatically compresses oversized videos with Discord's own encoder so they fit the account upload limit.",
       "author": "Mina",
       "channels": {
-        "latest": "0.2.0"
+        "latest": "0.2.1"
       },
       "versions": {
         "0.1.0": {
@@ -116,6 +116,19 @@
           "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.large-file-sender@0.2.0.zip",
           "sha256": "047ee12a1b18b5bd19ba6817f26e932a0523e76c31640ad3d6c0efe0809247dd",
           "size": 1803,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.2.1": {
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.large-file-sender@0.2.1.zip",
+          "sha256": "33c06edb4304fef88a12ee034d454695e4f37a878e0d075f9ea56e5a2a60911b",
+          "size": 2006,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
