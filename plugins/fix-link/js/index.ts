@@ -27,14 +27,18 @@ function rewriteOne(raw: string) {
 			return raw
 		}
 
-		return url.toString() + trailing
+		return '[.](' + url.toString() + ')' + trailing
 	} catch {
 		return raw
 	}
 }
 
 export function fixLinks(content: string) {
-	return content.replace(YOUTUBE_URL, rewriteOne)
+	const masked = content.replace(
+		MASKED_YOUTUBE_URL,
+		(_whole, url: string) => rewriteOne(url),
+	)
+	return masked.replace(YOUTUBE_URL, rewriteOne)
 }
 
 function installSendPatch(
