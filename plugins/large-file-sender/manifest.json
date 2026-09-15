@@ -1,19 +1,15 @@
 {
   "format": 1,
   "id": "dev.minatanky.large-file-sender",
-  "name": "Large File Sender",
-  "description": "Splits oversized files into Discord-sized parts and queues additional batches automatically.",
+  "name": "Large Video Sender",
+  "description": "Automatically compresses oversized videos with Discord's own encoder so they fit the account upload limit.",
   "author": "Mina",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "dependencies": {
     "revenge.api": { "version": ">=1 <2" },
     "discord": { "version": "*" }
   },
   "dist": {
-    "script": "index.js",
-    "android": {
-      "path": "plugin.jar",
-      "class": "dev.minatanky.largefiles.LargeFileSender"
-    }
+    "script": "index.js"
   }
 }
