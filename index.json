@@ -91,6 +91,29 @@
         }
       }
     },
+    "dev.minatanky.fix-link": {
+      "name": "Fix Link",
+      "description": "Automatically replaces supported video links before sending. Initial provider: YouTube via Koutube.",
+      "author": "Mina",
+      "channels": {
+        "latest": "0.1.0"
+      },
+      "versions": {
+        "0.1.0": {
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.fix-link@0.1.0.zip",
+          "sha256": "8f9bd11ad530b5521b5c8934ee77bc5bad3c148d114443eb1f14a10c1f945353",
+          "size": 1533,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.minatanky.large-file-sender": {
       "name": "Large Video Sender",
       "description": "Automatically compresses oversized videos with Discord's own encoder so they fit the account upload limit.",
