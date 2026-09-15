@@ -5,7 +5,7 @@ import { SettingsComponent } from './ui'
 const TAG = '[FixLink]'
 
 const YOUTUBE_URL =
-	/\b(?:https?:\/\/)?(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)\/[^\s<]+/gi
+	/\b(?:https?:\/\/)?(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)\/[^\s<>`|]+/gi
 const TRAILING_PUNCTUATION = /[),.!?;:]+$/
 
 function rewriteOne(raw: string) {
