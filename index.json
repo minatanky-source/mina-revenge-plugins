@@ -93,16 +93,29 @@
     },
     "dev.minatanky.fix-link": {
       "name": "Fix Link",
-      "description": "Automatically replaces supported video links before sending. Initial provider: YouTube via Koutube.",
+      "description": "Automatically fixes YouTube links with Koutube and hides the rewritten URL behind a single dot.",
       "author": "Mina",
       "channels": {
-        "latest": "0.1.0"
+        "latest": "0.1.1"
       },
       "versions": {
         "0.1.0": {
           "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.fix-link@0.1.0.zip",
           "sha256": "8f9bd11ad530b5521b5c8934ee77bc5bad3c148d114443eb1f14a10c1f945353",
           "size": 1533,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.1.1": {
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.fix-link@0.1.1.zip",
+          "sha256": "ee6ac98cc66c63337e2976d6931e47f0bd2c2d26e0e0d04e595f1c8ed7e15b58",
+          "size": 1596,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
