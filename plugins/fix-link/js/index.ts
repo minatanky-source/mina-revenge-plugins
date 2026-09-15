@@ -34,7 +34,11 @@ function rewriteOne(raw: string) {
 }
 
 export function fixLinks(content: string) {
-	const masked = content.replace(
+	const unwrapped = content.replace(
+		ANGLED_YOUTUBE_URL,
+		(_whole, url: string) => rewriteOne(url),
+	)
+	const masked = unwrapped.replace(
 		MASKED_YOUTUBE_URL,
 		(_whole, url: string) => rewriteOne(url),
 	)
