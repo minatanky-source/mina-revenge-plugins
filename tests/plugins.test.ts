@@ -274,155 +274,128 @@ test('outgoing translation preserves Discord tokens and falls back to original o
 })
 
 
-test('Large File Sender leaves files below the limit untouched', async () => {
-	const app = open('large-file-sender', {
-		nativeMethods: {
-			'dev.minatanky.large-file-sender.splitFile': () => ({
-				split: false,
-				size: 1024,
-			}),
-			'dev.minatanky.large-file-sender.cleanupSession': () => true,
-		},
-	})
+test('Large Video Sender leaves small videos on Discord default bitrate', async () => {
+	const app = open('large-file-sender')
 	await app.start()
 	await flush()
-	await app.attach([{ uri: 'content://small', filename: 'small.zip' }])
-	expect(app.uploads).toHaveLength(1)
-	expect(app.uploads[0].files[0].uri).toBe('content://small')
-	expect(app.nativeCalls[0].args[2]).toBe(19 * 1024 * 1024)
-})
 
-test('Large File Sender replaces an oversized file with uploadable parts', async () => {
-	const parts = Array.from({ length: 3 }, (_, index) => ({
-		uri: 'file:///parts/p' + (index + 1),
-		filename: 'archive.zip.mina.part00' + (index + 1) + '-of003',
-		size: 1024,
-		index: index + 1,
-		count: 3,
-	}))
-	const app = open('large-file-sender', {
-		nativeMethods: {
-			'dev.minatanky.large-file-sender.splitFile': () => ({
-				split: true,
-				size: 50 * 1024 * 1024,
-				sessionId: 'session-123456',
-				parts,
-			}),
-			'dev.minatanky.large-file-sender.cleanupSession': () => true,
-		},
-	})
-	await app.start()
-	await flush()
-	await app.attach([
-		{
-			id: 'original',
-			uri: 'content://large',
-			originalUri: 'content://large',
-			filename: 'archive.zip',
-			mimeType: 'application/zip',
-			platform: 1,
-			origin: 0,
-		},
-	])
-	expect(app.uploads).toHaveLength(1)
-	expect(app.uploads[0].files).toHaveLength(3)
-	expect(app.uploads[0].files[0]).toMatchObject({
-		uri: 'file:///parts/p1',
-		filename: 'archive.zip.mina.part001-of003',
-		mimeType: 'application/octet-stream',
-	})
-	expect(app.toasts.at(-1)).toContain('3 partes')
+	const metadata = {
+		bitRate: 2_000_000,
+		durationMs: 20_000,
+		fileSize: 5_000_000,
+		width: 1280,
+		height: 720,
+	}
 
-	await app.dispatch({
-		type: 'MESSAGE_CREATE',
-		message: {
-			id: 'sent-1',
-			channel_id: 'one',
-			author: { id: 'self' },
-			attachments: parts.map(part => ({ filename: part.filename })),
-		},
-	})
-	await flush()
 	expect(
-		app.nativeCalls.some(
-			call => call.name === 'dev.minatanky.large-file-sender.cleanupSession',
+		app.videoUploadUtils.canSkipVideoTranscode(
+			{ targetResolution: 720, targetBitrate: 2_250_000 },
+			metadata,
+			metadata.fileSize,
+			20_000_000,
 		),
 	).toBe(true)
+
+	expect(
+		app.videoUploadUtils.calculateOptimalBitrate(
+			metadata,
+			{ targetBitrate: 2_250_000 },
+			300_000,
+		),
+	).toBe(2_000_000)
 })
 
-test('Large File Sender queues more than ten parts across messages', async () => {
-	const parts = Array.from({ length: 12 }, (_, index) => ({
-		uri: 'file:///parts/p' + (index + 1),
-		filename:
-			'huge.bin.mina.part' +
-			String(index + 1).padStart(3, '0') +
-			'-of012',
-		size: 1024,
-		index: index + 1,
-		count: 12,
-	}))
-	const app = open('large-file-sender', {
-		nativeMethods: {
-			'dev.minatanky.large-file-sender.splitFile': () => ({
-				split: true,
-				size: 220 * 1024 * 1024,
-				sessionId: 'session-queue-123',
-				parts,
-			}),
-			'dev.minatanky.large-file-sender.cleanupSession': () => true,
-		},
-	})
+test('Large Video Sender forces transcoding when a video exceeds the target size', async () => {
+	const app = open('large-file-sender')
 	await app.start()
 	await flush()
-	await app.attach([{ uri: 'content://huge', filename: 'huge.bin' }])
-	expect(app.uploads[0].files).toHaveLength(10)
 
-	await app.dispatch({
-		type: 'MESSAGE_CREATE',
-		message: {
-			id: 'batch-1',
-			channel_id: 'one',
-			author: { id: 'self' },
-			attachments: parts
-				.slice(0, 10)
-				.map(part => ({ filename: part.filename })),
-		},
-	})
-	await flush(25)
-	expect(app.uploads).toHaveLength(2)
-	expect(app.uploads[1].files).toHaveLength(2)
-	expect(app.toasts.at(-1)).toContain('Lote 2/2')
+	const metadata = {
+		bitRate: 8_000_000,
+		durationMs: 30_000,
+		fileSize: 31_000_000,
+		width: 1920,
+		height: 1080,
+	}
 
-	await app.dispatch({
-		type: 'MESSAGE_CREATE',
-		message: {
-			id: 'batch-2',
-			channel_id: 'one',
-			author: { id: 'self' },
-			attachments: parts
-				.slice(10)
-				.map(part => ({ filename: part.filename })),
-		},
-	})
-	await flush()
-	expect(app.toasts.at(-1)).toContain('Todas as partes')
+	expect(
+		app.videoUploadUtils.canSkipVideoTranscode(
+			{ targetResolution: 720, targetBitrate: 7_000_000 },
+			metadata,
+			metadata.fileSize,
+			20_000_000,
+		),
+	).toBe(false)
+
+	const bitrate = app.videoUploadUtils.calculateOptimalBitrate(
+		metadata,
+		{ targetBitrate: 7_000_000 },
+		300_000,
+	)
+	expect(bitrate).toBeLessThan(5_000_000)
+	expect(bitrate).toBeGreaterThanOrEqual(300_000)
+
+	const estimatedFinalBytes =
+		((bitrate + 160_000) * (metadata.durationMs / 1000)) / 8
+	expect(estimatedFinalBytes).toBeLessThan(19_000_000)
 })
 
-test('Large File Sender falls back to Discord when native splitting fails', async () => {
-	const app = open('large-file-sender', {
-		nativeMethods: {
-			'dev.minatanky.large-file-sender.splitFile': () => {
-				throw new Error('cannot read content uri')
-			},
-			'dev.minatanky.large-file-sender.cleanupSession': () => true,
-		},
-	})
+test('Large Video Sender adapts bitrate for longer videos', async () => {
+	const app = open('large-file-sender')
 	await app.start()
 	await flush()
-	await app.attach([{ uri: 'content://broken', filename: 'broken.bin' }])
-	expect(app.uploads).toHaveLength(1)
-	expect(app.uploads[0].files[0].uri).toBe('content://broken')
-	expect(app.toasts.at(-1)).toContain('anexo original')
+
+	const metadata = {
+		bitRate: 3_000_000,
+		durationMs: 120_000,
+		fileSize: 46_000_000,
+		width: 1280,
+		height: 720,
+	}
+
+	const bitrate = app.videoUploadUtils.calculateOptimalBitrate(
+		metadata,
+		{ targetBitrate: 3_000_000 },
+		300_000,
+	)
+
+	expect(bitrate).toBeLessThan(1_200_000)
+	expect(
+		app.videoUploadUtils.canSkipVideoTranscode(
+			{ targetResolution: 720, targetBitrate: 3_000_000 },
+			metadata,
+			undefined,
+			20_000_000,
+		),
+	).toBe(false)
+})
+
+test('Large Video Sender supports a 9 MB target and cleanly unpatches', async () => {
+	const app = open('large-file-sender')
+	await app.start()
+	await flush()
+	await app.api.jsonStorage.set({ targetSizeMB: 9 })
+
+	const metadata = {
+		bitRate: 4_000_000,
+		durationMs: 40_000,
+		fileSize: 22_000_000,
+	}
+
+	const compressed = app.videoUploadUtils.calculateOptimalBitrate(
+		metadata,
+		{ targetBitrate: 4_000_000 },
+		300_000,
+	)
+	expect(compressed).toBeLessThan(2_000_000)
+
+	await app.stop()
+	const restored = app.videoUploadUtils.calculateOptimalBitrate(
+		metadata,
+		{ targetBitrate: 4_000_000 },
+		300_000,
+	)
+	expect(restored).toBe(4_000_000)
 })
 
 test('Motion installs the root hook synchronously before storage finishes loading', async () => {

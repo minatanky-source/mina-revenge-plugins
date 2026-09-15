@@ -2,18 +2,18 @@ import Page from '@revenge-mod/components/Page'
 import { Design } from '@revenge-mod/discord/design'
 import { ScrollView } from 'react-native'
 import { DEFAULTS } from './state'
-import type { LargeFileSettings } from './state'
+import type { LargeVideoSettings } from './state'
 
 const { Stack, TableRadioGroup, TableRadioRow, TableRowGroup, TableSwitchRow } =
 	Design
 
 export function SettingsComponent({ api }: any) {
-	const settings: LargeFileSettings = {
+	const settings: LargeVideoSettings = {
 		...DEFAULTS,
 		...(api.jsonStorage.use() ?? {}),
 	}
 
-	const set = (update: Partial<LargeFileSettings>) => {
+	const set = (update: Partial<LargeVideoSettings>) => {
 		void api.jsonStorage.set(update)
 	}
 
@@ -21,36 +21,30 @@ export function SettingsComponent({ api }: any) {
 		<Page spacing={16}>
 			<ScrollView>
 				<Stack spacing={20} style={{ paddingBottom: 32 }}>
-					<TableRowGroup title="Large File Sender">
+					<TableRowGroup title="Large Video Sender">
 						<TableSwitchRow
-							label="Ativar divisão automática"
-							subLabel="Arquivos acima do tamanho escolhido viram partes menores antes do upload."
+							label="Comprimir vídeos grandes"
+							subLabel="Força o encoder do próprio Discord a reduzir vídeos que ultrapassariam o limite de upload."
 							value={settings.enabled}
 							onValueChange={enabled => set({ enabled })}
-						/>
-						<TableSwitchRow
-							label="Carregar próximos lotes"
-							subLabel="Se houver mais de 10 partes, carrega o próximo lote depois que o atual for enviado."
-							value={settings.autoQueueBatches}
-							onValueChange={autoQueueBatches => set({ autoQueueBatches })}
 						/>
 					</TableRowGroup>
 
 					<TableRadioGroup
-						title="Tamanho de cada parte"
-						defaultValue={String(settings.partSizeMiB)}
+						title="Tamanho alvo"
+						defaultValue={String(settings.targetSizeMB)}
 						onChange={value =>
-							set({ partSizeMiB: Number(value) === 9 ? 9 : 19 })
+							set({ targetSizeMB: Number(value) === 9 ? 9 : 19 })
 						}
 					>
 						<TableRadioRow
-							label="19 MiB"
-							subLabel="Recomendado para limite de 20 MB."
+							label="19 MB"
+							subLabel="Recomendado para contas com limite de 20 MB."
 							value="19"
 						/>
 						<TableRadioRow
-							label="9 MiB"
-							subLabel="Use se sua conta ou servidor aceitar apenas cerca de 10 MB."
+							label="9 MB"
+							subLabel="Use se o seu limite efetivo for 10 MB."
 							value="9"
 						/>
 					</TableRadioGroup>

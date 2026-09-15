@@ -1,13 +1,11 @@
-export interface LargeFileSettings {
+export interface LargeVideoSettings {
 	enabled: boolean
-	partSizeMiB: 9 | 19
-	autoQueueBatches: boolean
+	targetSizeMB: 9 | 19
 }
 
-export const DEFAULTS: LargeFileSettings = {
+export const DEFAULTS: LargeVideoSettings = {
 	enabled: true,
-	partSizeMiB: 19,
-	autoQueueBatches: true,
+	targetSizeMB: 19,
 }
 
 let storage: any
@@ -16,6 +14,6 @@ export function setStorage(handle: any) {
 	storage = handle
 }
 
-export function getSettings(): LargeFileSettings {
+export function getSettings(): LargeVideoSettings {
 	return { ...DEFAULTS, ...(storage?.cache ?? {}) }
 }
