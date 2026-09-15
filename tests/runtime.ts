@@ -127,7 +127,21 @@ export function runtime(
 		},
 		clearAll() {},
 	}
-	const modules = [action, uploadActions, AppContainer]
+	const videoUploadUtils = {
+		calculateOptimalBitrate(metadata: any, target: any, floor: number) {
+			return Math.min(
+				Math.max(metadata?.bitRate ?? 0, floor),
+				target?.targetBitrate ?? Number.POSITIVE_INFINITY,
+			)
+		},
+		canSkipVideoTranscode() {
+			return true
+		},
+		calculateTargetDimensions(metadata: any, targetResolution: number) {
+			return { width: metadata?.width ?? targetResolution, height: metadata?.height ?? targetResolution }
+		},
+	}
+	const modules = [action, uploadActions, videoUploadUtils, AppContainer]
 	const matches = (filter: any, value: any) =>
 		filter.name
 			? value.name === filter.name
@@ -377,6 +391,7 @@ export function runtime(
 		uploads,
 		toasts,
 		nativeCalls,
+		videoUploadUtils,
 		dispatched,
 		animations,
 		values,
