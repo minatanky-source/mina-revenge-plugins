@@ -6,6 +6,10 @@ const TAG = '[FixLink]'
 
 const YOUTUBE_URL =
 	/\b(?:https?:\/\/)?(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)\/[^\s<>`|]+/gi
+const MASKED_YOUTUBE_URL =
+	/\[[^\]\n]*\]\((https?:\/\/(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+)\)/gi
+const ANGLED_YOUTUBE_URL =
+	/<(https?:\/\/(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)\/[^\s<>]+)>/gi
 const TRAILING_PUNCTUATION = /[),.!?;:]+$/
 
 function rewriteOne(raw: string) {
