@@ -421,6 +421,81 @@ test('Large Video Sender supports a 9 MB target and cleanly unpatches', async ()
 	expect(restored).toBe(4_000_000)
 })
 
+test('Fix Link rewrites standard YouTube and short links with Koutube', async () => {
+	const app = open('fix-link')
+	await app.start()
+	await flush()
+
+	await app.command('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=43s')
+	await app.command('https://youtu.be/dQw4w9WgXcQ?t=10')
+
+	expect(app.sent[0][1].content).toBe(
+		'https://koutube.com/watch?v=dQw4w9WgXcQ&t=43s',
+	)
+	expect(app.sent[1][1].content).toBe(
+		'https://koutu.be/dQw4w9WgXcQ?t=10',
+	)
+})
+
+test('Fix Link supports Shorts, mobile and YouTube Music links', async () => {
+	const app = open('fix-link')
+	await app.start()
+	await flush()
+
+	await app.command(
+		[
+			'https://youtube.com/shorts/abc123?feature=share',
+			'https://m.youtube.com/watch?v=mobile123',
+			'https://music.youtube.com/watch?v=music123&list=RDmusic123',
+		].join(' '),
+	)
+
+	expect(app.sent[0][1].content).toBe(
+		[
+			'https://koutube.com/shorts/abc123?feature=share',
+			'https://koutube.com/watch?v=mobile123',
+			'https://music.koutube.com/watch?v=music123&list=RDmusic123',
+		].join(' '),
+	)
+})
+
+test('Fix Link preserves surrounding text and Discord link wrappers', async () => {
+	const app = open('fix-link')
+	await app.start()
+	await flush()
+
+	await app.command(
+		'Olha isso: <https://youtube.com/watch?v=test123>. E ||https://youtu.be/other123||',
+	)
+
+	expect(app.sent[0][1].content).toBe(
+		'Olha isso: <https://koutube.com/watch?v=test123>. E ||https://koutu.be/other123||',
+	)
+})
+
+test('Fix Link leaves unrelated and already-fixed links untouched', async () => {
+	const app = open('fix-link')
+	await app.start()
+	await flush()
+
+	const content =
+		'https://example.com/video https://koutube.com/watch?v=ready https://koutu.be/ready'
+	await app.command(content)
+
+	expect(app.sent[0][1].content).toBe(content)
+})
+
+test('Fix Link can be disabled without affecting message sending', async () => {
+	const app = open('fix-link')
+	await app.start()
+	await flush()
+	await app.api.jsonStorage.set({ enabled: false })
+
+	const original = 'https://youtube.com/watch?v=disabled'
+	expect(await app.command(original)).toBe('sent')
+	expect(app.sent[0][1].content).toBe(original)
+})
+
 test('Motion installs the root hook synchronously before storage finishes loading', async () => {
 	const app = open('motion')
 	const starting = app.start()
