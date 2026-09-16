@@ -8,7 +8,7 @@
       "description": "Automatically translates incoming messages and your outgoing messages into the languages you choose.",
       "author": "Mina",
       "channels": {
-        "latest": "0.1.5"
+        "latest": "0.1.6"
       },
       "versions": {
         "0.1.0": {
@@ -88,6 +88,19 @@
               "version": "*"
             }
           }
+        },
+        "0.1.6": {
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.auto-translator@0.1.6.zip",
+          "sha256": "b295da86ceaa0fe644f5911b9e1408dda11e0e33f23842e0be7b7a31ca1851d2",
+          "size": 8547,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
@@ -96,7 +109,7 @@
       "description": "Automatically rewrites supported social links to embed-friendly providers and hides each fixed URL behind a single dot.",
       "author": "Mina",
       "channels": {
-        "latest": "0.2.0"
+        "latest": "0.2.1"
       },
       "versions": {
         "0.1.0": {
@@ -137,6 +150,19 @@
               "version": "*"
             }
           }
+        },
+        "0.2.1": {
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.fix-link@0.2.1.zip",
+          "sha256": "b8508b9add39b4933f3d3b820f993ff8a4faa3d9a62648fd245f29a49427ac38",
+          "size": 2545,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
@@ -145,7 +171,7 @@
       "description": "Automatically compresses oversized videos with Discord's own encoder so they fit the account upload limit.",
       "author": "Mina",
       "channels": {
-        "latest": "0.2.1"
+        "latest": "0.2.2"
       },
       "versions": {
         "0.1.0": {
@@ -186,6 +212,19 @@
               "version": "*"
             }
           }
+        },
+        "0.2.2": {
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.large-file-sender@0.2.2.zip",
+          "sha256": "9dca5a10f60dced5622425d9f897eb9deedf1060cac36efc0f18c4e6892e9973",
+          "size": 2124,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       }
     },
@@ -194,7 +233,7 @@
       "description": "Adds smooth, configurable animations across Discord.",
       "author": "Mina",
       "channels": {
-        "latest": "0.1.3"
+        "latest": "0.1.4"
       },
       "versions": {
         "0.1.0": {
@@ -240,6 +279,19 @@
           "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.motion@0.1.3.zip",
           "sha256": "a61a597faac1d058e7f1aaa2107b3f13e73e650499a8595d44e25175f200fd16",
           "size": 2882,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.1.4": {
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.motion@0.1.4.zip",
+          "sha256": "cfa9b5662ec06a2dc5a0b62ccc2bea607c8620f9dd68bba6973519c4fd6b2bd7",
+          "size": 2921,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
