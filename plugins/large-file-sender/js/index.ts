@@ -20,8 +20,11 @@ function durationSeconds(metadata: any) {
 	return durationMs / 1000
 }
 
-function configuredTargetBytes() {
-	return getSettings().targetSizeMB * DECIMAL_MB
+function configuredTargetBytes(discordLimit?: unknown) {
+	const configured = getSettings().targetSizeMB * DECIMAL_MB
+	return finitePositive(discordLimit)
+		? Math.min(configured, discordLimit * 0.97)
+		: configured
 }
 
 function estimatedSourceBytes(metadata: any) {
@@ -41,8 +44,7 @@ function shouldForceCompression(
 ) {
 	if (!getSettings().enabled) return false
 
-	let target = configuredTargetBytes()
-	if (finitePositive(discordLimit)) target = Math.min(target, discordLimit * 0.97)
+	const target = configuredTargetBytes(discordLimit)
 
 	const size = finitePositive(explicitFileSize)
 		? explicitFileSize
@@ -51,11 +53,12 @@ function shouldForceCompression(
 	return finitePositive(size) && size > target
 }
 
-function bitrateCap(metadata: any) {
+function bitrateCap(metadata: any, discordLimit?: unknown) {
 	const seconds = durationSeconds(metadata)
 	if (!seconds) return undefined
 
-	const totalBitsBudget = configuredTargetBytes() * 8 * CONTAINER_HEADROOM
+	const totalBitsBudget =
+		configuredTargetBytes(discordLimit) * 8 * CONTAINER_HEADROOM
 	const availableVideoBps =
 		totalBitsBudget / seconds - AUDIO_AND_MUX_RESERVE_BPS
 
@@ -73,6 +76,11 @@ function findVideoUploadUtils(
 	const { getModules } = revenge.modules.finders
 	const { withProps } = revenge.modules.finders.filters
 	const seen = new Set<any>()
+	// Keep the limit and explicit size with this upload, never in a global channel budget.
+	const uploads = new WeakMap<
+		object,
+		{ fileSize: unknown; maxFileSize: unknown }
+	>()
 
 	const unsubscribe = getModules(
 		withProps(
@@ -96,18 +104,16 @@ function findVideoUploadUtils(
 					host,
 					'canSkipVideoTranscode',
 					function (args: any[], original: any) {
-						const result = Reflect.apply(original, this, args)
 						const metadata = args?.[1]
 						const fileSize = args?.[2]
 						const maxFileSize = args?.[3]
+						if (metadata && typeof metadata === 'object') {
+							uploads.set(metadata, { fileSize, maxFileSize })
+						}
+						// Discord may calculate the bitrate inside this original method.
+						const result = Reflect.apply(original, this, args)
 
-						if (
-							shouldForceCompression(
-								metadata,
-								fileSize,
-								maxFileSize,
-							)
-						) {
+						if (shouldForceCompression(metadata, fileSize, maxFileSize)) {
 							console.log(
 								TAG,
 								'forcing Discord video transcode to fit upload limit',
@@ -129,19 +135,25 @@ function findVideoUploadUtils(
 						const metadata = args?.[0]
 
 						if (!getSettings().enabled) return originalBitrate
-						if (!shouldForceCompression(metadata)) return originalBitrate
+						if (!finitePositive(originalBitrate)) return originalBitrate
+						const upload =
+							metadata && typeof metadata === 'object'
+								? uploads.get(metadata)
+								: undefined
+						if (
+							!shouldForceCompression(
+								metadata,
+								upload?.fileSize,
+								upload?.maxFileSize,
+							)
+						)
+							return originalBitrate
 
-						const cap = bitrateCap(metadata)
+						const cap = bitrateCap(metadata, upload?.maxFileSize)
 						if (!finitePositive(cap)) return originalBitrate
 
 						const next = Math.min(originalBitrate, cap)
-						console.log(
-							TAG,
-							'adaptive bitrate',
-							originalBitrate,
-							'->',
-							next,
-						)
+						console.log(TAG, 'adaptive bitrate', originalBitrate, '->', next)
 						return next
 					},
 				),
@@ -155,7 +167,6 @@ function findVideoUploadUtils(
 
 	cleanup(unsubscribe)
 }
-
 
 function findKestrelExperiment(cleanup: Cleanup) {
 	const { getModules } = revenge.modules.finders
@@ -190,7 +201,10 @@ function findKestrelExperiment(cleanup: Cleanup) {
 						if (
 							getSettings().enabled &&
 							location === 'CloudUploader.native.uploadFiles' &&
-							result?.enabled
+							result &&
+							typeof result === 'object' &&
+							'enabled' in result &&
+							result.enabled
 						) {
 							console.log(
 								TAG,
@@ -224,12 +238,7 @@ export default plugin<{ jsonStorage: LargeVideoSettings }>({
 
 		findVideoUploadUtils(api.cleanup)
 		findKestrelExperiment(api.cleanup)
-		console.log(
-			TAG,
-			'started; target',
-			getSettings().targetSizeMB,
-			'MB',
-		)
+		console.log(TAG, 'started; target', getSettings().targetSizeMB, 'MB')
 	},
 
 	stop() {

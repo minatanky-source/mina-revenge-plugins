@@ -22,10 +22,7 @@ function setHost(url: URL, hostname: string) {
 }
 
 function wrapFixEmbed(url: URL) {
-	return (
-		'https://fixembed.app/embed?url=' +
-		encodeURIComponent(url.toString())
-	)
+	return 'https://fixembed.app/embed?url=' + encodeURIComponent(url.toString())
 }
 
 function rewriteUrl(
@@ -188,29 +185,29 @@ function rewriteOne(raw: string) {
 	}
 }
 
-export function fixLinks(content: string) {
-	const unwrapped = content.replace(
-		ANGLED_SOURCE_URL,
-		(whole, url: string) => {
-			const fixed = rewriteOne(url)
-			return fixed === url ? whole : fixed
-		},
-	)
+function fixPlainLinks(content: string) {
+	const unwrapped = content.replace(ANGLED_SOURCE_URL, (whole, url: string) => {
+		const fixed = rewriteOne(url)
+		return fixed === url ? whole : fixed
+	})
 
-	const masked = unwrapped.replace(
-		MASKED_SOURCE_URL,
-		(whole, url: string) => {
-			const fixed = rewriteOne(url)
-			return fixed === url ? whole : fixed
-		},
-	)
+	const masked = unwrapped.replace(MASKED_SOURCE_URL, (whole, url: string) => {
+		const fixed = rewriteOne(url)
+		return fixed === url ? whole : fixed
+	})
 
 	return masked.replace(SOURCE_URL, rewriteOne)
 }
 
-function installSendPatch(
-	cleanup: (...fns: Array<() => unknown>) => void,
-) {
+export function fixLinks(content: string) {
+	// Preserve code examples verbatim, including unfinished fenced blocks.
+	return content
+		.split(/(```[\s\S]*?(?:```|$)|`[^`\n]+`)/g)
+		.map((part, index) => (index % 2 ? part : fixPlainLinks(part)))
+		.join('')
+}
+
+function installSendPatch(cleanup: (...fns: Array<() => unknown>) => void) {
 	const { getModules } = revenge.modules.finders
 	const { withProps } = revenge.modules.finders.filters
 	const seen = new Set<any>()

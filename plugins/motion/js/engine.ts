@@ -123,6 +123,7 @@ export function installMotion(cleanup: Cleanup) {
 		cleanup(
 			jsxRuntime.beforeJSX(component, args => {
 				if (!active) return args
+				if (args[1]?.children?.type === MotionSurface) return args
 				return [
 					args[0],
 					{

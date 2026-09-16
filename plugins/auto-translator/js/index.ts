@@ -37,13 +37,20 @@ const LANGUAGE_ALIASES: Record<string, string> = {
 	chines: 'zh-CN',
 }
 
-function normalizeLanguage(value: string) {
+function normalizeLanguage(value: unknown) {
+	if (typeof value !== 'string') return undefined
 	const raw = value.trim()
-	const lowered = raw.toLowerCase()
-	return LANGUAGE_ALIASES[lowered] ?? raw
+	const lowered = raw
+		.toLowerCase()
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
+	if (Object.prototype.hasOwnProperty.call(LANGUAGE_ALIASES, lowered))
+		return LANGUAGE_ALIASES[lowered]
+	return /^[a-z]{2,3}(?:-[a-z]{2,4})?$/i.test(raw) ? raw : undefined
 }
 
 let commandsActive = false
+let outgoingRevision = 0
 
 function showLocalMessage(message: string) {
 	try {
@@ -89,8 +96,11 @@ function installLocalCommands(
 								return original.apply(this, args)
 							}
 
-							const { prepared, tokens, translatable } = protectText(message.content)
+							const { prepared, tokens, translatable } = protectText(
+								message.content,
+							)
 							if (!translatable) return original.apply(this, args)
+							const revision = outgoingRevision
 
 							try {
 								const translated = await translateNow(
@@ -99,7 +109,12 @@ function installLocalCommands(
 								)
 								const restored = restoreText(translated, tokens)
 
-								if (restored && restored !== message.content) {
+								if (
+									commandsActive &&
+									revision === outgoingRevision &&
+									restored &&
+									restored !== message.content
+								) {
 									args[1] = { ...message, content: restored }
 								}
 							} catch (error) {
@@ -146,14 +161,20 @@ function installLocalCommands(
 								return undefined
 							}
 
-							if (/^[A-Za-z-]{2,20}$/.test(parts[2] ?? '')) {
-								const outgoingTargetLanguage = normalizeLanguage(parts[2])
+							const outgoingTargetLanguage = normalizeLanguage(parts[2] ?? '')
+							if (parts.length === 3 && outgoingTargetLanguage) {
 								await api.jsonStorage.set({
 									outgoingTargetLanguage,
 									outgoingEnabled: true,
 								})
 								showLocalMessage(
 									'Idioma de saída alterado para: ' + outgoingTargetLanguage,
+								)
+								return undefined
+							}
+							if (sub !== 'status') {
+								showLocalMessage(
+									'Comando inválido. Use !tr out en, on, off ou status.',
 								)
 								return undefined
 							}
@@ -247,8 +268,9 @@ function installLocalCommands(
 							return undefined
 						}
 
-						if (parts.length === 2 && /^[A-Za-z-]{2,20}$/.test(parts[1])) {
-							const targetLanguage = normalizeLanguage(parts[1])
+						const targetLanguage =
+							parts.length === 2 ? normalizeLanguage(parts[1]) : undefined
+						if (targetLanguage) {
 							await api.jsonStorage.set({ targetLanguage })
 							showLocalMessage('Idioma alterado para: ' + targetLanguage)
 							return undefined
@@ -277,16 +299,35 @@ export default plugin<{ jsonStorage: TranslatorSettings }>({
 	async start(api) {
 		setStorage(api.jsonStorage)
 		commandsActive = true
+		outgoingRevision++
 		api.cleanup(() => {
 			commandsActive = false
+			outgoingRevision++
 		})
 		await api.jsonStorage.get()
+		const saved = api.jsonStorage.cache ?? {}
+		const targetLanguage =
+			normalizeLanguage(saved.targetLanguage) ?? DEFAULTS.targetLanguage
+		const outgoingTargetLanguage =
+			normalizeLanguage(saved.outgoingTargetLanguage) ??
+			DEFAULTS.outgoingTargetLanguage
+		// Repair values such as "status" saved by older command parsing.
+		if (
+			saved.targetLanguage !== targetLanguage ||
+			saved.outgoingTargetLanguage !== outgoingTargetLanguage
+		)
+			await api.jsonStorage.set({ targetLanguage, outgoingTargetLanguage })
 
 		patchChatManager(api.cleanup)
 		installLocalCommands(api, api.cleanup)
 
 		api.cleanup(
 			api.jsonStorage.subscribe(update => {
+				if (
+					update.outgoingEnabled !== undefined ||
+					update.outgoingTargetLanguage !== undefined
+				)
+					outgoingRevision++
 				if (update.targetLanguage !== undefined || update.enabled !== undefined)
 					resetTranslations()
 
@@ -304,6 +345,7 @@ export default plugin<{ jsonStorage: TranslatorSettings }>({
 
 	stop() {
 		commandsActive = false
+		outgoingRevision++
 		repaintAll(true)
 		resetChat()
 		resetTranslations()
