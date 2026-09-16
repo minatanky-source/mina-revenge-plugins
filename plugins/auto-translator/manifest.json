@@ -4,7 +4,7 @@
   "name": "Auto Translator",
   "description": "Automatically translates incoming messages and your outgoing messages into the languages you choose.",
   "author": "Mina",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "dependencies": {
     "revenge.api": { "version": ">=1 <2" },
     "discord": { "version": "*" }

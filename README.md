@@ -4,15 +4,17 @@ Plugins para **Revenge Next**. Não são compatíveis com o formato de plugins d
 
 | Plugin | Versão | Correções |
 | --- | --- | --- |
-| Auto Translator | 0.1.4 | Espera o carregamento do chat, acompanha canais e edições e descarta traduções antigas. |
-| Motion | 0.1.3 | Reativa transições com opacidade e escala, preserva os botões e respeita a opção de reduzir movimento do Android. |
+| Auto Translator | 0.1.6 | Corrige o comando de status de saída e idiomas inválidos salvos; descarta traduções de saída após mudar a configuração ou desativar o plugin. |
+| Large Video Sender | 0.2.2 | Usa o limite e o tamanho informado para cada vídeo no cálculo da compressão. |
+| Fix Link | 0.2.1 | Preserva URLs dentro de código entre crases e blocos de código. |
+| Motion | 0.1.4 | Evita aplicar duas camadas de animação à mesma tela quando os dois caminhos de criação do React são usados. |
 
 ## Atualizar no celular
 
 1. No Revenge, abra **Plugins** e toque na engrenagem no topo para abrir **Advanced**.
 2. Em **Updates**, toque em **Check for updates** e depois em **Update all**.
 3. Reinicie o Discord para carregar os novos arquivos e aplicar o Motion à tela principal.
-4. Confira as versões na tabela acima. Não é necessário reinstalar o Manager ou substituir o bundle.
+4. Confira as versões na tabela acima. Elas ficam disponíveis pelo atualizador depois que as alterações forem incorporadas à `main` e o fluxo **Release plugins** terminar com sucesso.
 
 Se precisar adicionar o repositório, use:
 
@@ -27,12 +29,27 @@ Os comandos abaixo são locais e não são enviados ao canal enquanto o plugin e
 | Comando | Ação |
 | --- | --- |
 | `!tr pt` | Escolher português. |
-| `!tr on` / `!tr off` | Ativar ou desativar a tradução. Ao desativar, restaurar os originais ainda acompanhados. |
+| `!tr on` / `!tr off` | Ativar ou desativar a tradução recebida. Ao desativar, restaurar os originais ainda acompanhados. |
+| `!tr out en` | Traduzir suas mensagens para inglês. Aceita outros códigos de idioma, como `es`. |
+| `!tr out on` / `!tr out off` | Ativar ou desativar a tradução das suas mensagens. |
+| `!tr out` / `!tr out status` | Consultar o idioma e o estado da tradução de saída sem mudar as configurações. |
 | `!tr status` | Ver conexão com o chat, contadores, fila e último erro. |
 | `!tr test` | Traduzir uma frase de teste e mostrar o resultado em um aviso local. |
 | `!tr retry` | Limpar erros e tentar novamente. |
 
-O texto a traduzir é enviado ao Google Translate. Menções, URLs e trechos de código são protegidos antes do envio. As mensagens originais no servidor do Discord não são editadas.
+O texto a traduzir é enviado ao Google Translate. Menções, URLs e trechos de código são protegidos antes do envio. A tradução recebida só altera a exibição local. Com a tradução de saída ativa, a versão traduzida da sua mensagem é enviada ao canal.
+
+Se a tradução de saída for desativada ou tiver seu idioma alterado enquanto uma mensagem estiver aguardando o serviço, essa mensagem será enviada no original. Configurações inválidas como o idioma `status`, gravadas por versões anteriores, são corrigidas na inicialização.
+
+## Large Video Sender
+
+O tamanho escolhido (9 ou 19 MB) é um alvo. Quando o Discord informa um limite menor para o vídeo, o cálculo usa esse limite com margem. O limite é acompanhado por vídeo para não misturar uploads de canais diferentes.
+
+O plugin usa o encoder do Discord e mantém o piso de bitrate. Vídeos muito longos podem continuar acima do limite mesmo após a compressão; nesses casos, reduza a duração. A qualidade e o tamanho real do arquivo precisam ser conferidos no Android.
+
+## Fix Link
+
+Os links das plataformas ativadas são convertidos para os provedores configurados, mantendo a apresentação como um ponto. URLs em código entre crases e blocos com três crases permanecem como foram escritas. A prévia depende também da disponibilidade do provedor externo.
 
 ## Motion
 
@@ -40,7 +57,16 @@ Nas configurações do plugin, escolha o estilo e os efeitos para navegação, c
 
 ## Verificação
 
-`bun install` e `bun run test` compilam os plugins e executam testes sobre os arquivos gerados. Os testes simulam os contratos de Flux, módulos, armazenamento e animações do Next. Também são executados antes de publicar versões. A aparência e o comportamento nativo precisam ser conferidos no dispositivo Android.
+`bun install --frozen-lockfile`, `bun run test` e `bun run lint:types` instalam as dependências registradas em `bun.lock`, compilam os plugins, executam testes sobre os arquivos gerados e verificam os tipos. Os testes simulam os contratos de Flux, módulos, armazenamento e animações do Next. Os testes de comportamento também são executados antes de publicar versões.
+
+Após atualizar no Android:
+
+1. **Auto Translator:** execute `!tr status`, `!tr test` e `!tr out status`; confira se os comandos permanecem locais e se uma mensagem recebida é traduzida. Para testar o envio original, use `!tr out off`.
+2. **Large Video Sender:** envie um vídeo de teste acima do limite da conta e confira o tamanho final. Anote duração, tamanho original, limite informado e qualquer erro.
+3. **Fix Link:** envie uma URL suportada e a mesma URL entre crases. Confira se somente a primeira foi convertida e se a prévia carrega.
+4. **Motion:** reinicie o Discord, troque de canal e teste botões. Confira também o comportamento com a opção de reduzir movimento do Android.
+
+Os testes automatizados não substituem essa verificação no dispositivo. Ao relatar uma falha, inclua as versões do Discord, Revenge Next e plugin, o resultado esperado e uma captura do erro ou diagnóstico.
 
 Abaixo está a documentação original do template de desenvolvimento.
 

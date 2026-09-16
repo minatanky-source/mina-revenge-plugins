@@ -255,11 +255,67 @@ test('outgoing translation has its own language and enable switch', async () => 
 	expect(app.sent.at(-1)?.[1].content).toBe('es: Outra mensagem')
 })
 
+test('outgoing status and invalid commands never change the selected language', async () => {
+	const app = open()
+	await app.start()
+	await flush()
+	await app.command('!tr out off')
+	await app.command('!tr out status')
+	expect(app.alerts.at(-1)).toContain('Saída: desativada')
+	expect(app.api.jsonStorage.cache).toMatchObject({
+		outgoingEnabled: false,
+		outgoingTargetLanguage: 'en',
+	})
+	await app.command('!tr out help')
+	await app.command('!tr out constructor')
+	await app.command('!tr nonsense')
+	expect(app.api.jsonStorage.cache).toMatchObject({
+		targetLanguage: 'pt',
+		outgoingEnabled: false,
+		outgoingTargetLanguage: 'en',
+	})
+	expect(app.sent).toHaveLength(0)
+	expect(app.requests).toHaveLength(0)
+})
+
+test('disabling outgoing translation while a message is pending sends the original', async () => {
+	let finish!: (value: Response) => void
+	const app = open('auto-translator', {
+		fetch: (() =>
+			new Promise(resolve => {
+				finish = resolve
+			})) as typeof fetch,
+	})
+	await app.start()
+	await flush()
+	const sending = app.command('Mensagem original')
+	await app.command('!tr out off')
+	finish(new Response(JSON.stringify([[['Translated message']]])))
+	expect(await sending).toBe('sent')
+	expect(app.sent.at(-1)?.[1].content).toBe('Mensagem original')
+})
+
+test('startup repairs invalid languages saved by earlier command parsing', async () => {
+	const app = open()
+	await app.api.jsonStorage.set({
+		outgoingTargetLanguage: 'status',
+		targetLanguage: 'nonsense',
+	})
+	await app.start()
+	await flush()
+	await app.command('Olá')
+	expect(app.api.jsonStorage.cache).toMatchObject({
+		targetLanguage: 'pt',
+		outgoingTargetLanguage: 'en',
+	})
+	expect(app.sent.at(-1)?.[1].content).toBe('en: Olá')
+})
+
 test('outgoing translation preserves Discord tokens and falls back to original on failure', async () => {
 	const app = open()
 	await app.start()
 	await flush()
-	const original = "Oi <@123> `a$&b` https://example.com/a$&b"
+	const original = 'Oi <@123> `a$&b` https://example.com/a$&b'
 	await app.command(original)
 	expect(app.sent.at(-1)?.[1].content).toBe('en: ' + original)
 	await app.dispose()
@@ -272,7 +328,6 @@ test('outgoing translation preserves Discord tokens and falls back to original o
 	expect(await failing.command('Não bloquear meu envio')).toBe('sent')
 	expect(failing.sent.at(-1)?.[1].content).toBe('Não bloquear meu envio')
 })
-
 
 test('Large Video Sender leaves small videos on Discord default bitrate', async () => {
 	const app = open('large-file-sender')
@@ -421,6 +476,64 @@ test('Large Video Sender supports a 9 MB target and cleanly unpatches', async ()
 	expect(restored).toBe(4_000_000)
 })
 
+test('Large Video Sender applies each video upload limit to the encoder budget', async () => {
+	const app = open('large-file-sender')
+	await app.start()
+	await flush()
+	const smallLimitVideo = {
+		bitRate: 4_000_000,
+		durationMs: 30_000,
+		fileSize: 15_000_000,
+	}
+	const largeLimitVideo = { ...smallLimitVideo }
+	const target = { targetBitrate: 4_000_000 }
+	app.videoUploadUtils.canSkipVideoTranscode(
+		target,
+		smallLimitVideo,
+		15_000_000,
+		10_000_000,
+	)
+	app.videoUploadUtils.canSkipVideoTranscode(
+		target,
+		largeLimitVideo,
+		15_000_000,
+		20_000_000,
+	)
+	const bitrate = app.videoUploadUtils.calculateOptimalBitrate(
+		smallLimitVideo,
+		target,
+		300_000,
+	)
+	expect(((bitrate + 160_000) * 30) / 8).toBeLessThan(10_000_000)
+	expect(
+		app.videoUploadUtils.calculateOptimalBitrate(
+			largeLimitVideo,
+			target,
+			300_000,
+		),
+	).toBe(4_000_000)
+})
+
+test('Large Video Sender remembers explicit file sizes when metadata omits them', async () => {
+	const app = open('large-file-sender')
+	await app.start()
+	await flush()
+	const metadata = { durationMs: 30_000 }
+	const target = { targetBitrate: 4_000_000 }
+	app.videoUploadUtils.canSkipVideoTranscode(
+		target,
+		metadata,
+		25_000_000,
+		10_000_000,
+	)
+	const bitrate = app.videoUploadUtils.calculateOptimalBitrate(
+		metadata,
+		target,
+		4_000_000,
+	)
+	expect(((bitrate + 160_000) * 30) / 8).toBeLessThan(10_000_000)
+})
+
 test('Fix Link keeps YouTube support with Koutube', async () => {
 	const app = open('fix-link')
 	await app.start()
@@ -556,6 +669,31 @@ test('Fix Link master switch disables every provider', async () => {
 		'https://youtube.com/watch?v=disabled https://x.com/u/status/123 https://instagram.com/p/ABC'
 	expect(await app.command(original)).toBe('sent')
 	expect(app.sent[0][1].content).toBe(original)
+})
+
+test('Fix Link preserves inline and fenced code while rewriting surrounding URLs', async () => {
+	const app = open('fix-link')
+	await app.start()
+	await flush()
+	const code =
+		'`https://x.com/u/status/1`\n```text\nhttps://youtube.com/watch?v=example\n```'
+	await app.command(code + '\nhttps://x.com/u/status/2')
+	expect(app.sent.at(-1)?.[1].content).toBe(
+		code + '\n[.](https://fixupx.com/u/status/2)',
+	)
+})
+
+test('Motion does not nest two animation surfaces when both JSX paths process a root', async () => {
+	const app = open('motion')
+	await app.start()
+	const root = app.revenge.react.React.createElement(
+		app.AppContainer,
+		{ rootTag: 7 },
+		'app',
+	)
+	const surface = root.props.children
+	const [, props] = app.jsx(app.AppContainer, root.props)
+	expect(props.children).toBe(surface)
 })
 
 test('Motion installs the root hook synchronously before storage finishes loading', async () => {

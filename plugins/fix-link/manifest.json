@@ -4,7 +4,7 @@
   "name": "Fix Link",
   "description": "Automatically rewrites supported social links to embed-friendly providers and hides each fixed URL behind a single dot.",
   "author": "Mina",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "dependencies": {
     "revenge.api": { "version": ">=1 <2" },
     "discord": { "version": "*" }
