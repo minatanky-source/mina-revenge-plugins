@@ -7,7 +7,7 @@ Plugins para **Revenge Next**. Não são compatíveis com o formato de plugins d
 | Auto Translator | 0.1.6 | Corrige o comando de status de saída e idiomas inválidos salvos; descarta traduções de saída após mudar a configuração ou desativar o plugin. |
 | Large Video Sender | 0.2.2 | Usa o limite e o tamanho informado para cada vídeo no cálculo da compressão. |
 | Fix Link | 0.2.1 | Preserva URLs dentro de código entre crases e blocos de código. |
-| Motion | 0.1.4 | Evita aplicar duas camadas de animação à mesma tela quando os dois caminhos de criação do React são usados. |
+| Motion | 0.2.0 | Substitui a animação global da raiz por transições contextuais para telas, canais, servidores, sheets/modais e controles. |
 
 ## Atualizar no celular
 
@@ -53,7 +53,9 @@ Os links das plataformas ativadas são convertidos para os provedores configurad
 
 ## Motion
 
-Nas configurações do plugin, escolha o estilo e os efeitos para navegação, canais, menus e botões. As transições de tela usam um efeito breve de opacidade e escala. Os botões usam a animação de pressão do próprio Discord. Desativar o plugin ou ativar a redução de movimento interrompe os efeitos pendentes.
+O Motion 0.2.0 usa animações contextuais em vez de aplicar opacity/scale à raiz do Discord. Navegação usa `RootNavigationRef` + `Design.LayerScope`; canais e servidores usam eventos Flux canceláveis; action sheets e alertas são animados na própria superfície; botões preservam identidade, refs e handlers. Os presets Suave, Fluido e Elástico ficam centralizados e o Reduce Motion interrompe qualquer efeito ativo restaurando os valores finais.
+
+A arquitetura, limitações e detalhes de compatibilidade estão documentados em [`plugins/motion/README.md`](plugins/motion/README.md).
 
 ## Verificação
 
@@ -64,7 +66,7 @@ Após atualizar no Android:
 1. **Auto Translator:** execute `!tr status`, `!tr test` e `!tr out status`; confira se os comandos permanecem locais e se uma mensagem recebida é traduzida. Para testar o envio original, use `!tr out off`.
 2. **Large Video Sender:** envie um vídeo de teste acima do limite da conta e confira o tamanho final. Anote duração, tamanho original, limite informado e qualquer erro.
 3. **Fix Link:** envie uma URL suportada e a mesma URL entre crases. Confira se somente a primeira foi convertida e se a prévia carrega.
-4. **Motion:** reinicie o Discord, troque de canal e teste botões. Confira também o comportamento com a opção de reduzir movimento do Android.
+4. **Motion:** teste navegação de ida/volta, trocas rápidas de canal e servidor, action sheets/modais e botões. Ative **Reduzir animações** no Android durante uma transição e confira se a interface volta imediatamente ao estado final.
 
 Os testes automatizados não substituem essa verificação no dispositivo. Ao relatar uma falha, inclua as versões do Discord, Revenge Next e plugin, o resultado esperado e uma captura do erro ou diagnóstico.
 
