@@ -37,7 +37,20 @@ jobs:
         run: bun run test
 
       - name: Check TypeScript types
-        run: bun run lint:types
+        id: typecheck
+        continue-on-error: true
+        run: bun run lint:types 2>&1 | tee /tmp/typecheck.txt
+
+      - name: Upload TypeScript diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typecheck-diagnostics
+          path: /tmp/typecheck.txt
+
+      - name: Fail on TypeScript errors
+        if: steps.typecheck.outcome == 'failure'
+        run: exit 1
 
       - name: Check out Revenge native API
         if: ${{ hashFiles('plugins/*/src/main/**/*.kt') != '' }}
