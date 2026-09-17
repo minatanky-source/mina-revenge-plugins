@@ -230,7 +230,7 @@ export function installMotion(cleanup: CleanupRegistrar) {
 		children,
 		role,
 	}: {
-		children: any
+		children?: any
 		role: SurfaceRole
 	}) {
 		const opacityRef = React.useRef<any>(null)
@@ -456,7 +456,7 @@ export function installMotion(cleanup: CleanupRegistrar) {
 		)
 	}
 
-	function wrapChildren(args: any[], role: SurfaceRole) {
+	function wrapChildren(args: any, role: SurfaceRole): any {
 		const props = args[1] ?? {}
 		if (props.children?.type === ContextSurface) return args
 		return [
@@ -495,7 +495,7 @@ export function installMotion(cleanup: CleanupRegistrar) {
 		addCleanup(
 			jsxRuntime.beforeJSX(Design.AlertModal, args => {
 				if (!active || args[1]?.content == null) return args
-				const content = args[1].content
+				const content: any = args[1].content
 				if (typeof content !== 'object' || content?.type === ContextSurface)
 					return args
 				return [
@@ -509,7 +509,7 @@ export function installMotion(cleanup: CleanupRegistrar) {
 						),
 					},
 					args[2],
-				]
+				] as typeof args
 			}),
 		)
 	}
