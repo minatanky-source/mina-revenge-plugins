@@ -31,7 +31,7 @@ export function SettingsComponent({ api }: any) {
 						/>
 						<TableSwitchRow
 							label="Respeitar Reduzir animações"
-							subLabel="Desativa os efeitos quando o Android pedir menos movimento."
+							subLabel="Interrompe e restaura os efeitos quando o Android pedir menos movimento."
 							value={settings.respectReduceMotion}
 							onValueChange={respectReduceMotion =>
 								set({ respectReduceMotion })
@@ -46,17 +46,17 @@ export function SettingsComponent({ api }: any) {
 					>
 						<TableRadioRow
 							label="Suave"
-							subLabel="Rápido e discreto."
+							subLabel="Quase imperceptível, rápido e com pouco deslocamento."
 							value="subtle"
 						/>
 						<TableRadioRow
 							label="Fluido"
-							subLabel="Equilíbrio entre velocidade e movimento."
+							subLabel="Equilíbrio entre velocidade, fade e movimento."
 							value="smooth"
 						/>
 						<TableRadioRow
 							label="Elástico"
-							subLabel="Mais vivo, com efeito de mola."
+							subLabel="Mais expressivo, com overshoot moderado."
 							value="bouncy"
 						/>
 					</TableRadioGroup>
@@ -64,25 +64,31 @@ export function SettingsComponent({ api }: any) {
 					<TableRowGroup title="Onde animar">
 						<TableSwitchRow
 							label="Navegação"
-							subLabel="Telas, voltar e mudanças de rota."
+							subLabel="Telas, configurações, perfis e voltar."
 							value={settings.navigation}
 							onValueChange={navigation => set({ navigation })}
 						/>
 						<TableSwitchRow
-							label="Servidores e canais"
-							subLabel="Trocas de servidor, canal e conversas."
+							label="Canais e conversas"
+							subLabel="Trocas curtas de canal, DM e conversa."
 							value={settings.channels}
 							onValueChange={channels => set({ channels })}
 						/>
 						<TableSwitchRow
+							label="Servidores"
+							subLabel="Usa um efeito próprio quando a guild realmente muda."
+							value={settings.guilds}
+							onValueChange={guilds => set({ guilds })}
+						/>
+						<TableSwitchRow
 							label="Menus e modais"
-							subLabel="Action sheets, alertas e fechamento de camadas."
+							subLabel="Action sheets e alertas nas próprias superfícies."
 							value={settings.sheets}
 							onValueChange={sheets => set({ sheets })}
 						/>
 						<TableSwitchRow
 							label="Botões"
-							subLabel="Adiciona resposta de pressão aos controles do Discord."
+							subLabel="Mantém o feedback de pressão nativo do Discord."
 							value={settings.controls}
 							onValueChange={controls => set({ controls })}
 						/>

@@ -2,9 +2,9 @@
   "format": 1,
   "id": "dev.minatanky.motion",
   "name": "Motion",
-  "description": "Adds smooth, configurable animations across Discord.",
+  "description": "Adds contextual, fluid animations across Discord without animating the whole app for every action.",
   "author": "Mina",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "dependencies": {
     "revenge.api": { "version": ">=1 <2" },
     "discord": { "version": "*" }
