@@ -36,6 +36,9 @@ jobs:
       - name: Test plugin runtime behavior
         run: bun run test
 
+      - name: Check TypeScript types
+        run: bun run lint:types
+
       - name: Check out Revenge native API
         if: ${{ hashFiles('plugins/*/src/main/**/*.kt') != '' }}
         uses: actions/checkout@v4
