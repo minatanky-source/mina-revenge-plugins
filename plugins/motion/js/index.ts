@@ -7,8 +7,8 @@ export default plugin<{ jsonStorage: MotionSettings }>({
 	jsonStorage: { default: DEFAULTS, load: true },
 	start(api) {
 		setStorage(api.jsonStorage)
-		const reset = installMotion(api.cleanup)
-		api.cleanup(api.jsonStorage.subscribe(reset))
+		const settingsChanged = installMotion(api.cleanup)
+		api.cleanup(api.jsonStorage.subscribe(settingsChanged))
 		if (api.plugin.startedLate) api.plugin.requireReload()
 		return api.jsonStorage.get()
 	},
