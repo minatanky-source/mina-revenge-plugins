@@ -230,10 +230,10 @@
     },
     "dev.minatanky.motion": {
       "name": "Motion",
-      "description": "Adds smooth, configurable animations across Discord.",
+      "description": "Adds contextual, fluid animations across Discord without animating the whole app for every action.",
       "author": "Mina",
       "channels": {
-        "latest": "0.1.4"
+        "latest": "0.2.0"
       },
       "versions": {
         "0.1.0": {
@@ -292,6 +292,19 @@
           "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.motion@0.1.4.zip",
           "sha256": "cfa9b5662ec06a2dc5a0b62ccc2bea607c8620f9dd68bba6973519c4fd6b2bd7",
           "size": 2921,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.2.0": {
+          "url": "https://raw.githubusercontent.com/minatanky-source/mina-revenge-plugins/gh-pages/pool/dev.minatanky.motion@0.2.0.zip",
+          "sha256": "d1fcc1c439aaf8b44a2c9561fcbdee4467ffdad839d438cfe57985a47901efb2",
+          "size": 4858,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
