@@ -1,0 +1,15 @@
+{
+  "name": "Mina Translator",
+  "description": "Tradução automática de entrada e saída com Gemini e app offline opcional.",
+  "authors": [
+    {
+      "name": "Mina"
+    }
+  ],
+  "main": "index.js",
+  "version": "0.1.0",
+  "hash": "de6d44c84ebb32db019b3ec0771724d567a1ab9d254e4c3a70cfc9af5c555e1c",
+  "vendetta": {
+    "icon": "LanguageIcon"
+  }
+}

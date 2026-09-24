@@ -1,0 +1,40 @@
+name: Kettu translator and offline APK
+on:
+  push:
+    branches: ['kettu/gemini-offline-translator']
+    paths: ['kettu/**', '.github/workflows/kettu-translator.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test kettu/auto-translator/tests/*.test.cjs
+      - run: node kettu/auto-translator/build.cjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - run: gradle -p kettu/offline-bridge assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mina-offline-apk
+          path: kettu/offline-bridge/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mina-kettu-plugin
+          path: |
+            kettu/auto-translator/index.js
+            kettu/auto-translator/manifest.json
+          if-no-files-found: error
